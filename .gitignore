@@ -6,3 +6,4 @@ vendor/casino-sdk.zip
 vendor/casino-sdk/
 superteam_cache/
 *.log
+package-lock.json
