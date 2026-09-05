@@ -36,8 +36,8 @@ body,
 body {
   background: var(--void);
   color: var(--text);
-  font: 300 13px/1.55 var(--mono);
-  letter-spacing: 0.01em;
+  font: 300 12.5px/1.6 var(--mono);
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -66,7 +66,7 @@ body {
   background: var(--void);
   border: 1px solid var(--edge);
   min-height: 300px;
-  box-shadow: inset 0 0 120px 20px rgba(0, 0, 0, 0.55);
+  box-shadow: inset 0 0 90px 10px rgba(0, 0, 0, 0.35);
 }
 
 .sky-canvas {
@@ -253,13 +253,13 @@ body {
 }
 
 .bet {
-  padding: 14px;
+  padding: 11px;
   border: 0;
   border-radius: 2px;
   background: linear-gradient(180deg, #ffe9b8 0%, #f0c473 45%, #d9a544 100%);
   color: #20170a;
   font-family: var(--display);
-  font-size: 21px;
+  font-size: 19px;
   letter-spacing: 0.01em;
   cursor: pointer;
   box-shadow:

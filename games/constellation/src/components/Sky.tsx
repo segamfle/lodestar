@@ -113,14 +113,14 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
       const h = height;
 
       // Night sky, darker toward the edges so the eye settles on the board.
-      const sky2 = ctx.createRadialGradient(w / 2, h * 0.45, 0, w / 2, h * 0.45, Math.max(w, h) * 0.75);
-      sky2.addColorStop(0, '#131a2e');
-      sky2.addColorStop(0.6, '#0b0f1c');
-      sky2.addColorStop(1, '#06080f');
+      const sky2 = ctx.createRadialGradient(w / 2, h * 0.42, 0, w / 2, h * 0.42, Math.max(w, h) * 0.8);
+      sky2.addColorStop(0, '#1b2440');
+      sky2.addColorStop(0.45, '#111830');
+      sky2.addColorStop(1, '#080b16');
       ctx.fillStyle = sky2;
       ctx.fillRect(0, 0, w, h);
 
-      const pad = Math.min(w, h) * 0.1;
+      const pad = Math.min(w, h) * 0.055;
       const size = Math.min(w, h) - pad * 2;
       const left = (w - size) / 2;
       const top = (h - size) / 2;
@@ -142,12 +142,12 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
           // The point every cell keeps, so an empty board still reads as sky. Brightness
           // varies per cell and drifts slowly: a lattice of identical dots looks printed,
           // and a sky that holds perfectly still looks dead.
-          const base = 0.3 + drift(cell, 2) * 0.18;
-          const twinkle = reduceMotion ? 0 : Math.sin(t * 0.7 + cell * 1.7) * 0.12;
-          const faint = Math.max(0.12, base + twinkle);
+          const base = 0.44 + drift(cell, 2) * 0.2;
+          const twinkle = reduceMotion ? 0 : Math.sin(t * 0.7 + cell * 1.7) * 0.14;
+          const faint = Math.max(0.2, base + twinkle);
           ctx.beginPath();
-          ctx.arc(x, y, radius * (0.055 + faint * 0.03), 0, Math.PI * 2);
-          ctx.fillStyle = `rgba(176,196,232,${faint.toFixed(3)})`;
+          ctx.arc(x, y, radius * (0.07 + faint * 0.035), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(196,214,246,${faint.toFixed(3)})`;
           ctx.fill();
 
           // The ring the player drew.
@@ -229,11 +229,11 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
       // Light falls off toward the frame, the way it does through any lens, which pushes the
       // eye to the middle where the board is.
       const vignette = ctx.createRadialGradient(
-        w / 2, h * 0.46, Math.min(w, h) * 0.28,
-        w / 2, h * 0.46, Math.max(w, h) * 0.78,
+        w / 2, h * 0.44, Math.min(w, h) * 0.42,
+        w / 2, h * 0.44, Math.max(w, h) * 0.85,
       );
       vignette.addColorStop(0, 'rgba(0,0,0,0)');
-      vignette.addColorStop(1, 'rgba(0,0,0,0.72)');
+      vignette.addColorStop(1, 'rgba(0,0,0,0.42)');
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, w, h);
 
