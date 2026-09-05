@@ -37,6 +37,13 @@ jobs:
           unzip -q vendor/casino-sdk.zip -d vendor/casino-sdk
           test -f vendor/casino-sdk/casino-sdk/package.json
 
+      # The games bundle the SDK's TypeScript sources, which import penpal and zod, so those
+      # have to be resolvable at build time. Only the SDK's own runtime dependencies are
+      # installed: --workspaces=false skips its simulator and local VRF node, which drag in
+      # Hardhat and are not needed to build a guest.
+      - name: Install the SDK's runtime dependencies
+        run: npm install --prefix vendor/casino-sdk/casino-sdk --no-audit --no-fund --omit=dev --workspaces=false
+
       - name: Build Tideline
         working-directory: games/tideline
         run: |
