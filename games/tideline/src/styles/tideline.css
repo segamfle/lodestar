@@ -1,0 +1,312 @@
+/* Tideline — harbour at night.
+   The palette is wet stone, brass and cold water. Everything the player touches is brass;
+   everything the tide claims turns to water-light. */
+
+:root {
+  --ink: #0a1017;
+  --stone: #141b26;
+  --brass: #ffc666;
+  --brass-dim: #9c8158;
+  --water: #60bed6;
+  --water-deep: #1f688a;
+  --foam: #d6f4ff;
+  --text: #e8eef5;
+  --text-dim: #8fa3b8;
+  --edge: rgba(255, 255, 255, 0.09);
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--ink);
+  color: var(--text);
+  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tideline {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 18px;
+  height: 100%;
+  min-height: 460px;
+  padding: 18px;
+}
+
+@media (max-width: 720px) {
+  .tideline {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(280px, 1fr) auto;
+  }
+}
+
+/* ---- scene ---------------------------------------------------------------- */
+
+.scene {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--stone);
+  border: 1px solid var(--edge);
+  min-height: 280px;
+}
+
+.tideline-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The rungs are drawn on canvas; these are the hit targets laid over them, positioned to
+   match `rungY` in Ladder.tsx. Keeping them as real buttons means the ladder is operable by
+   keyboard and readable by a screen reader without the canvas having to fake either. */
+.rung-hits {
+  position: absolute;
+  inset: 12% 0 18%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0 6%;
+}
+
+.rung-hit {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  margin-top: -20px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color 140ms, background 140ms, border-color 140ms;
+}
+
+.rung-hit:hover:not(:disabled),
+.rung-hit:focus-visible {
+  color: var(--text);
+  background: rgba(255, 198, 102, 0.08);
+  border-color: rgba(255, 198, 102, 0.35);
+  outline: none;
+}
+
+.rung-hit.is-staked {
+  color: var(--brass);
+  border-color: rgba(255, 198, 102, 0.5);
+}
+
+.rung-hit.is-covered {
+  color: var(--foam);
+  border-color: rgba(150, 230, 255, 0.55);
+  background: rgba(96, 190, 214, 0.12);
+}
+
+.rung-hit:disabled {
+  cursor: default;
+}
+
+.rung-index {
+  width: 1.2em;
+  font-weight: 700;
+}
+
+.rung-mult {
+  font-weight: 600;
+}
+
+.rung-odds {
+  margin-left: auto;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.result {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 22px;
+  border-radius: 12px;
+  background: rgba(10, 16, 23, 0.82);
+  border: 1px solid var(--edge);
+  backdrop-filter: blur(6px);
+  text-align: center;
+}
+
+.result-level {
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.result strong {
+  font-size: 19px;
+}
+
+.result.is-win strong {
+  color: var(--foam);
+}
+
+/* ---- controls -------------------------------------------------------------- */
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--stone);
+  border: 1px solid var(--edge);
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid var(--edge);
+}
+
+.field > span:first-child {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.field input:focus {
+  outline: none;
+}
+
+.unit {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.readout {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.readout > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.readout dt {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.readout dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.bet {
+  padding: 13px;
+  border: 0;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #ffd68a, #e0a844);
+  color: #241a08;
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 140ms, transform 90ms;
+}
+
+.bet:hover:not(:disabled) {
+  filter: brightness(1.07);
+}
+
+.bet:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.bet:disabled {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-dim);
+  cursor: default;
+}
+
+.reset {
+  padding: 9px;
+  border: 1px solid var(--edge);
+  border-radius: 10px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.reset:hover {
+  color: var(--text);
+}
+
+.hint,
+.error,
+.rtp {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.error {
+  color: #ff9b8a;
+}
+
+.rtp {
+  margin-top: auto;
+  padding-top: 10px;
+  border-top: 1px solid var(--edge);
+  opacity: 0.75;
+}
+
+.standalone {
+  color: var(--water);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 1ms !important;
+  }
+}

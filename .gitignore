@@ -8,3 +8,4 @@ superteam_cache/
 *.log
 package-lock.json
 config/payout-addresses.json
+games/*/dist/
