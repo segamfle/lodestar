@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.*
+vendor/casino-sdk.zip
+vendor/casino-sdk/
+superteam_cache/
+*.log
