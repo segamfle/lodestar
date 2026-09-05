@@ -27,8 +27,14 @@ const EMPTY_HEX = '0x' as const;
 const SHAPE_ABI = [{ type: 'uint256' }] as const;
 const STATE_ABI = [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'bool' }] as const;
 
-/** Gap between stars arriving. Seven of them fill a little over two seconds. */
-const STAR_GAP_MS = 300;
+/**
+ * Gap between stars arriving.
+ *
+ * At 300ms with a 450ms bloom each star was still growing when the next one started, so
+ * seven arrivals overlapped into what read as a single flash. Every star now finishes
+ * landing before the next begins, which is the difference between a reveal and a blink.
+ */
+const STAR_GAP_MS = 420;
 
 type RoundStatus = 'opening' | 'waiting' | 'lighting' | 'done';
 

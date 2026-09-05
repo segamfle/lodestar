@@ -350,9 +350,13 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
       ctx.beginPath();
       ctx.moveTo(0, h);
       ctx.lineTo(0, waterY + surfaceAt(0, h, phaseT, surge));
-      for (let x = step; x <= w; x += step) {
+      for (let x = step; x < w; x += step) {
         ctx.lineTo(x, waterY + surfaceAt(x, h, phaseT, surge));
       }
+      // The surface has to land exactly on the right edge. Stepping by a fixed amount stops
+      // short whenever the width is not a multiple of the step, and the fill then cuts back
+      // to the corner leaving a wedge of missing water.
+      ctx.lineTo(w, waterY + surfaceAt(w, h, phaseT, surge));
       ctx.lineTo(w, h);
       ctx.closePath();
 
@@ -367,11 +371,11 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
       ctx.strokeStyle = `rgba(214,244,255,${(0.35 + surge * 0.4).toFixed(3)})`;
       ctx.lineWidth = Math.max(1, h * 0.0035);
       ctx.beginPath();
-      for (let x = 0; x <= w; x += step) {
-        const y = waterY + surfaceAt(x, h, phaseT, surge);
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      ctx.moveTo(0, waterY + surfaceAt(0, h, phaseT, surge));
+      for (let x = step; x < w; x += step) {
+        ctx.lineTo(x, waterY + surfaceAt(x, h, phaseT, surge));
       }
+      ctx.lineTo(w, waterY + surfaceAt(w, h, phaseT, surge));
       ctx.stroke();
 
       // The rails carry on down through the water, dimmed and wavering.

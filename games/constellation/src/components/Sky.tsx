@@ -16,8 +16,12 @@ interface SkyProps {
   hovered: number | null;
 }
 
-/** Seconds a star takes to bloom to full brightness. */
-const BLOOM = 0.45;
+/** Seconds a star takes to settle after it lands. Shorter than the gap between arrivals, so
+ *  each one is its own beat rather than a smear across the others. */
+const BLOOM = 0.26;
+
+/** Seconds the arrival flash lasts - the punch that makes the eye catch each star land. */
+const SPARK = 0.34;
 
 /** Deterministic jitter so the grid reads as a sky rather than a spreadsheet. */
 function drift(cell: number, axis: number): number {
@@ -173,15 +177,31 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
           // A star that has arrived.
           if (starHere && bloom > 0) {
             const brightness = marked ? 1 : 0.62;
-            const core = radius * (0.16 + 0.1 * bloom) * brightness;
+            const spark = age >= 0 && age < SPARK ? 1 - age / SPARK : 0;
 
-            const halo = ctx.createRadialGradient(x, y, 0, x, y, radius * 1.5 * bloom);
-            halo.addColorStop(0, `rgba(255,248,220,${0.55 * bloom * brightness})`);
-            halo.addColorStop(0.35, `rgba(255,214,140,${0.22 * bloom * brightness})`);
+            // A ring of light thrown outward on arrival. Without a moment of impact the eye
+            // slides over a star that simply faded up, and seven of them become one event.
+            if (spark > 0 && !reduceMotion) {
+              const ring = radius * (0.3 + (1 - spark) * 2.1);
+              ctx.strokeStyle = `rgba(255,244,214,${(spark * spark * 0.55 * brightness).toFixed(3)})`;
+              ctx.lineWidth = Math.max(1, radius * 0.09 * spark);
+              ctx.beginPath();
+              ctx.arc(x, y, ring, 0, Math.PI * 2);
+              ctx.stroke();
+            }
+
+            // Overshoot on landing, then settle.
+            const punch = 1 + spark * spark * 0.7;
+            const core = radius * (0.16 + 0.1 * bloom) * brightness * punch;
+
+            const reach = radius * (1.4 * bloom + 0.5 * spark);
+            const halo = ctx.createRadialGradient(x, y, 0, x, y, reach);
+            halo.addColorStop(0, `rgba(255,248,220,${((0.5 + spark * 0.4) * bloom * brightness).toFixed(3)})`);
+            halo.addColorStop(0.35, `rgba(255,214,140,${(0.22 * bloom * brightness).toFixed(3)})`);
             halo.addColorStop(1, 'rgba(255,214,140,0)');
             ctx.fillStyle = halo;
             ctx.beginPath();
-            ctx.arc(x, y, radius * 1.5 * bloom, 0, Math.PI * 2);
+            ctx.arc(x, y, reach, 0, Math.PI * 2);
             ctx.fill();
 
             ctx.beginPath();
