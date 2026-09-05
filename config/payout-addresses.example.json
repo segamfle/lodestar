@@ -1,0 +1,11 @@
+{
+  "evm": "0x0000000000000000000000000000000000000000",
+  "sol": "<your sol address>",
+  "btc": "<your btc address>",
+  "ltc": "<your ltc address>",
+  "doge": "<your doge address>",
+  "bch": "<your bch address>",
+  "tron": "<your tron address>",
+  "github": "<your github handle>",
+  "discord": "<your discord handle>"
+}

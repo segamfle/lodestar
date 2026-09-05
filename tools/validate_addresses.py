@@ -13,6 +13,8 @@ bad addresses, which is worse than not checking at all.
 """
 
 import hashlib
+import json
+import os
 import sys
 
 # ---------------------------------------------------------------- keccak-256
@@ -248,20 +250,41 @@ def verify_solana(address):
     return True, "32-byte ed25519 pubkey, well-formed (no checksum exists to verify)"
 
 
-EVM_ADDRESS = "0x54ae0851d4C2255a1F0E9237aC94b645f3997f54"
+# Addresses live in config/payout-addresses.json, which is deliberately gitignored. A public
+# repository would tie every one of them to the owner's GitHub identity permanently, and a
+# payout address published alongside a name makes its whole balance and history readable by
+# anyone who looks. Copy payout-addresses.example.json and fill it in.
+CONFIG_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "config",
+    "payout-addresses.json",
+)
 
-WALLET = [
-    ("BTC", "bc1qp7mcfj9xl4enhdt3cwsazz9v3fdjchaygfxy6t", verify_bech32),
-    ("LTC", "LcH1Byv2J4qyqq3KuiwQYPsn91frzu4LBX",
-     lambda a: verify_base58check(a, {0x30, 0x32}, "Litecoin")),
-    ("DOGE", "DA38mV1PAYtrDaC9NCDXNAMmtoKVQHKyft",
-     lambda a: verify_base58check(a, {0x1E}, "Dogecoin")),
-    ("BCH", "qrcjp0zw870dlm2rmwv20mthzvz8yfpnggyjsakufe", verify_cashaddr),
-    ("SOL", "HJm75xYkXvhE9qZKjuwPEoGM8ayUxGmyCja1BHdaw26L", verify_solana),
-    ("TRON", "TYpewyhgooHxeE16PgZLgaUcxJPQvzqsX6",
-     lambda a: verify_base58check(a, {0x41}, "TRON")),
-    ("EVM", EVM_ADDRESS, verify_evm),
-]
+VERIFIERS = {
+    "btc": ("BTC", verify_bech32),
+    "ltc": ("LTC", lambda a: verify_base58check(a, {0x30, 0x32}, "Litecoin")),
+    "doge": ("DOGE", lambda a: verify_base58check(a, {0x1E}, "Dogecoin")),
+    "bch": ("BCH", verify_cashaddr),
+    "sol": ("SOL", verify_solana),
+    "tron": ("TRON", lambda a: verify_base58check(a, {0x41}, "TRON")),
+    "evm": ("EVM", verify_evm),
+}
+
+
+def load_wallet():
+    if not os.path.exists(CONFIG_PATH):
+        print("No %s found." % CONFIG_PATH)
+        print("Copy config/payout-addresses.example.json to it and fill in your addresses.")
+        raise SystemExit(2)
+    with open(CONFIG_PATH, encoding="utf-8") as handle:
+        config = json.load(handle)
+
+    wallet = []
+    for key, (label, verifier) in VERIFIERS.items():
+        address = config.get(key)
+        if address:
+            wallet.append((label, address, verifier))
+    return wallet
 
 
 def self_test():
@@ -284,9 +307,10 @@ def self_test():
 
 def main():
     self_test()
+    wallet = load_wallet()
     failures = 0
-    width = max(len(name) for name, _, _ in WALLET)
-    for name, address, verifier in WALLET:
+    width = max(len(name) for name, _, _ in wallet)
+    for name, address, verifier in wallet:
         ok, detail = verifier(address)
         if not ok:
             failures += 1
@@ -296,7 +320,7 @@ def main():
     if failures:
         print("%d address(es) FAILED verification. Do not use them." % failures)
     else:
-        print("All %d verified. Safe to paste into payout forms." % len(WALLET))
+        print("All %d verified. Safe to paste into payout forms." % len(wallet))
     return 1 if failures else 0
 
 

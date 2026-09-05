@@ -7,3 +7,4 @@ vendor/casino-sdk/
 superteam_cache/
 *.log
 package-lock.json
+config/payout-addresses.json
