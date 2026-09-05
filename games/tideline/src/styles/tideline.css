@@ -12,7 +12,12 @@
   --foam: #d6f4ff;
   --text: #e8eef5;
   --text-dim: #8fa3b8;
-  --edge: rgba(255, 255, 255, 0.09);
+  --edge: rgba(255, 255, 255, 0.07);
+
+  /* A display serif for the words that carry weight, a mono for everything numeric. A
+     paytable is read in columns and proportional digits jitter as they change. */
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   color-scheme: dark;
 }
@@ -31,7 +36,8 @@ body,
 body {
   background: var(--ink);
   color: var(--text);
-  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 300 12.5px/1.6 var(--mono);
+  letter-spacing: -0.01em;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -55,7 +61,7 @@ body {
 
 .scene {
   position: relative;
-  border-radius: 14px;
+  border-radius: 3px;
   overflow: hidden;
   background: var(--stone);
   border: 1px solid var(--edge);
@@ -89,7 +95,7 @@ body {
   height: 40px;
   padding: 0 12px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 2px;
   background: none;
   color: var(--text-dim);
   font: inherit;
@@ -145,23 +151,25 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  padding: 10px 22px;
-  border-radius: 12px;
-  background: rgba(10, 16, 23, 0.82);
+  padding: 11px 24px;
+  border-radius: 2px;
+  background: rgba(10, 16, 23, 0.88);
   border: 1px solid var(--edge);
   backdrop-filter: blur(6px);
   text-align: center;
 }
 
 .result-level {
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 
 .result strong {
-  font-size: 19px;
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1.05;
 }
 
 .result.is-win strong {
@@ -173,26 +181,32 @@ body {
 .controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 14px;
-  background: var(--stone);
+  gap: 13px;
+  padding: 18px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #18202c 0%, #10161f 100%);
   border: 1px solid var(--edge);
+  /* A hairline of light on the top edge and depth beneath, so the panel reads as a surface
+     rather than a div with a border. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 48px -24px rgba(0, 0, 0, 0.9);
 }
 
 .field {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.28);
+  padding: 11px 13px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.36);
   border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .field > span:first-child {
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
@@ -203,9 +217,9 @@ body {
   border: 0;
   background: none;
   color: var(--text);
-  font: inherit;
-  font-size: 17px;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--display);
+  font-size: 26px;
+  line-height: 1;
   text-align: right;
 }
 
@@ -243,16 +257,18 @@ body {
 }
 
 .bet {
-  padding: 13px;
+  padding: 11px;
   border: 0;
-  border-radius: 11px;
-  background: linear-gradient(180deg, #ffd68a, #e0a844);
-  color: #241a08;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 700;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffe3a6 0%, #e9bb62 45%, #cf9a3c 100%);
+  color: #20170a;
+  font-family: var(--display);
+  font-size: 19px;
   cursor: pointer;
-  transition: filter 140ms, transform 90ms;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 26px -12px rgba(233, 187, 98, 0.7);
+  transition: filter 140ms, transform 90ms, box-shadow 140ms;
 }
 
 .bet:hover:not(:disabled) {

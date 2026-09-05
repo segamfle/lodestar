@@ -43,55 +43,163 @@ function paintBackdrop(w: number, h: number, ratio: number): HTMLCanvasElement {
   if (!ctx) return layer;
   ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
 
-  const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, '#0b1220');
-  sky.addColorStop(0.55, '#101a2b');
-  sky.addColorStop(1, '#0a1017');
-  ctx.fillStyle = sky;
+  // The wall fills the frame. An earlier version drew it as a strip down the middle, which
+  // read as a rectangle floating on a background rather than as the side of a harbour.
+  const stone = ctx.createLinearGradient(0, 0, w, h);
+  stone.addColorStop(0, '#1a1f28');
+  stone.addColorStop(0.5, '#141920');
+  stone.addColorStop(1, '#0d1116');
+  ctx.fillStyle = stone;
   ctx.fillRect(0, 0, w, h);
 
-  const wallLeft = w * 0.22;
-  const wallRight = w * 0.78;
-  ctx.fillStyle = '#141b26';
-  ctx.fillRect(wallLeft, 0, wallRight - wallLeft, h);
-
-  const course = h * 0.075;
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-  ctx.lineWidth = 1;
-  for (let row = 0; row * course < h; row++) {
+  // Coursed masonry. Rows break their joints the way real stonework does, and each block
+  // gets its own weathering so the wall is never twice the same.
+  const course = h * 0.062;
+  for (let row = 0; row * course < h + course; row++) {
     const y = row * course;
+    const offset = (row % 2) * (w / 7);
+
+    for (let block = -1; block < 8; block++) {
+      const x = offset + (block * w) / 3.5;
+      const bw = w / 3.5;
+
+      const shade = hash2(row, block);
+      ctx.fillStyle = `rgba(${Math.round(150 + shade * 40)},${Math.round(150 + shade * 38)},${Math.round(148 + shade * 36)},${(0.018 + shade * 0.032).toFixed(3)})`;
+      ctx.fillRect(x, y, bw, course);
+
+      // Damp bleeding down from each joint.
+      const damp = ctx.createLinearGradient(0, y, 0, y + course * 0.7);
+      damp.addColorStop(0, `rgba(20,34,42,${(0.1 + hash2(block, row) * 0.16).toFixed(3)})`);
+      damp.addColorStop(1, 'rgba(20,34,42,0)');
+      ctx.fillStyle = damp;
+      ctx.fillRect(x, y, bw, course * 0.7);
+    }
+
+    // Mortar: a dark line with a hairline of light beneath, which is what gives stone edges.
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(wallLeft, y);
-    ctx.lineTo(wallRight, y);
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+    ctx.beginPath();
+    ctx.moveTo(0, y + 1);
+    ctx.lineTo(w, y + 1);
     ctx.stroke();
 
-    // Alternate courses break their joints, the way real masonry does.
-    const offset = row % 2 === 0 ? 0 : (wallRight - wallLeft) / 6;
-    for (let block = 0; block < 4; block++) {
-      const x = wallLeft + offset + (block * (wallRight - wallLeft)) / 3;
-      if (x <= wallLeft || x >= wallRight) continue;
+    for (let block = -1; block < 8; block++) {
+      const x = offset + (block * w) / 3.5;
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
       ctx.beginPath();
       ctx.moveTo(x, y);
       ctx.lineTo(x, y + course);
       ctx.stroke();
     }
-
-    ctx.fillStyle = `rgba(255,255,255,${(hash2(row, 3) * 0.05).toFixed(3)})`;
-    ctx.fillRect(wallLeft, y, wallRight - wallLeft, course);
   }
 
-  const railInset = w * 0.32;
-  const railWidth = Math.max(3, w * 0.012);
-  for (const x of [railInset, w - railInset - railWidth]) {
-    const grad = ctx.createLinearGradient(x, 0, x + railWidth, 0);
-    grad.addColorStop(0, '#6b563c');
-    grad.addColorStop(0.5, '#8d7350');
-    grad.addColorStop(1, '#5a462f');
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, h * 0.06, railWidth, h * 0.9);
-  }
+  // Light from somewhere above and left, so the wall has a direction.
+  const key = ctx.createLinearGradient(0, 0, w * 0.9, h);
+  key.addColorStop(0, 'rgba(150,180,220,0.09)');
+  key.addColorStop(0.5, 'rgba(150,180,220,0.02)');
+  key.addColorStop(1, 'rgba(0,0,0,0.18)');
+  ctx.fillStyle = key;
+  ctx.fillRect(0, 0, w, h);
 
   return layer;
+}
+
+/**
+ * A tile of grain. Perfectly smooth gradients are the loudest tell that a picture was
+ * computed rather than captured; a faint layer of noise over everything is most of the
+ * difference between a render and a photograph.
+ */
+function makeGrain(size = 128): HTMLCanvasElement {
+  const tile = document.createElement('canvas');
+  tile.width = size;
+  tile.height = size;
+  const ctx = tile.getContext('2d');
+  if (!ctx) return tile;
+  const image = ctx.createImageData(size, size);
+  for (let i = 0; i < image.data.length; i += 4) {
+    const v = 128 + (Math.random() - 0.5) * 255;
+    image.data[i] = image.data[i + 1] = image.data[i + 2] = v;
+    image.data[i + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  return tile;
+}
+
+/** The bell over the top rung: yoke, crown, shoulder, lip, and a clapper that swings. */
+function paintBell(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  lit: boolean,
+  swing: number,
+) {
+  ctx.save();
+  ctx.translate(x, y);
+
+  // The headstock the bell hangs from stays put; only the bell swings.
+  ctx.fillStyle = '#3a2f21';
+  ctx.fillRect(-size * 0.62, -size * 0.92, size * 1.24, size * 0.16);
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.fillRect(-size * 0.62, -size * 0.92, size * 1.24, size * 0.04);
+
+  ctx.rotate(swing);
+
+  if (lit) {
+    ctx.shadowColor = 'rgba(255,214,138,0.85)';
+    ctx.shadowBlur = size * 1.1;
+  }
+
+  const body = ctx.createLinearGradient(-size * 0.6, 0, size * 0.6, 0);
+  if (lit) {
+    body.addColorStop(0, '#8a6a2e');
+    body.addColorStop(0.32, '#ffe9ad');
+    body.addColorStop(0.62, '#d8a94e');
+    body.addColorStop(1, '#6d5223');
+  } else {
+    body.addColorStop(0, '#4a3f2c');
+    body.addColorStop(0.32, '#9a8358');
+    body.addColorStop(0.62, '#6b5a3b');
+    body.addColorStop(1, '#3b3123');
+  }
+  ctx.fillStyle = body;
+
+  // Crown loop.
+  ctx.beginPath();
+  ctx.arc(0, -size * 0.7, size * 0.13, Math.PI, 0);
+  ctx.lineTo(size * 0.08, -size * 0.55);
+  ctx.lineTo(-size * 0.08, -size * 0.55);
+  ctx.closePath();
+  ctx.fill();
+
+  // Shoulder curving out to the lip — the profile is what makes a bell read as a bell.
+  ctx.beginPath();
+  ctx.moveTo(-size * 0.2, -size * 0.58);
+  ctx.bezierCurveTo(-size * 0.34, -size * 0.4, -size * 0.44, size * 0.05, -size * 0.56, size * 0.42);
+  ctx.lineTo(-size * 0.62, size * 0.52);
+  ctx.lineTo(size * 0.62, size * 0.52);
+  ctx.lineTo(size * 0.56, size * 0.42);
+  ctx.bezierCurveTo(size * 0.44, size * 0.05, size * 0.34, -size * 0.4, size * 0.2, -size * 0.58);
+  ctx.closePath();
+  ctx.fill();
+
+  // The lip catches the most light.
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = lit ? 'rgba(255,246,214,0.9)' : 'rgba(190,170,130,0.35)';
+  ctx.fillRect(-size * 0.62, size * 0.44, size * 1.24, size * 0.07);
+
+  // Clapper, trailing the swing.
+  ctx.fillStyle = lit ? '#7a5c25' : '#2e271c';
+  ctx.beginPath();
+  ctx.arc(-swing * size * 1.6, size * 0.34, size * 0.11, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
 }
 
 export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
@@ -132,6 +240,8 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
 
     let raf = 0;
     let backdrop: HTMLCanvasElement | null = null;
+    const grain = makeGrain();
+    const grainPattern = ctx.createPattern(grain, 'repeat');
     let width = 0;
     let height = 0;
     let ratio = 1;
@@ -209,23 +319,9 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
 
       // ---- bell over the top rung -----------------------------------------------------
       const crowned = currentLevel === RUNGS;
-      const bellY = rungY(RUNGS) * h - h * 0.055;
-      const swing = crowned && !reduceMotion ? Math.sin(t * 9) * 0.14 * surge : 0;
-      ctx.save();
-      ctx.translate(w / 2, bellY);
-      ctx.rotate(swing);
-      if (crowned) {
-        ctx.shadowColor = 'rgba(255,214,138,0.8)';
-        ctx.shadowBlur = h * 0.05;
-      }
-      ctx.fillStyle = crowned ? '#ffd68a' : '#7d6b4a';
-      ctx.beginPath();
-      ctx.moveTo(-w * 0.028, w * 0.026);
-      ctx.quadraticCurveTo(-w * 0.026, -w * 0.022, 0, -w * 0.026);
-      ctx.quadraticCurveTo(w * 0.026, -w * 0.022, w * 0.028, w * 0.026);
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
+      const bellSize = Math.min(w, h) * 0.075;
+      const swing = crowned && !reduceMotion ? Math.sin(t * 7.5) * 0.22 * surge : 0;
+      paintBell(ctx, w / 2, rungY(RUNGS) * h - h * 0.075, bellSize, crowned, swing);
 
       // ---- water ------------------------------------------------------------------------
       const phaseT = reduceMotion ? 0 : t;
@@ -258,14 +354,46 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
       }
       ctx.stroke();
 
-      // The rails carry on down through the water, dimmed by it.
+      // The rails carry on down through the water, dimmed and wavering.
       ctx.save();
-      ctx.globalAlpha = 0.25;
+      ctx.globalAlpha = 0.22;
       ctx.fillStyle = '#8d7350';
       for (const x of [railInset, w - railInset - railWidth]) {
-        ctx.fillRect(x, waterY, railWidth, h - waterY);
+        for (let y = waterY; y < h; y += 4) {
+          const waver = reduceMotion ? 0 : Math.sin(y * 0.13 + phaseT * 2.4) * railWidth * 0.5;
+          ctx.fillRect(x + waver, y, railWidth, 4);
+        }
       }
       ctx.restore();
+
+      // A bright band just beneath the surface, where light gets in before the water takes
+      // it. Without this the water is a flat sheet of colour.
+      const shallows = ctx.createLinearGradient(0, waterY, 0, waterY + h * 0.09);
+      shallows.addColorStop(0, 'rgba(168,232,250,0.24)');
+      shallows.addColorStop(1, 'rgba(168,232,250,0)');
+      ctx.fillStyle = shallows;
+      ctx.fillRect(0, waterY, w, h * 0.09);
+
+      // ---- atmosphere ------------------------------------------------------------------
+      const vignette = ctx.createRadialGradient(
+        w / 2, h * 0.45, Math.min(w, h) * 0.4,
+        w / 2, h * 0.45, Math.max(w, h) * 0.85,
+      );
+      vignette.addColorStop(0, 'rgba(0,0,0,0)');
+      vignette.addColorStop(1, 'rgba(0,0,0,0.45)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, w, h);
+
+      if (grainPattern) {
+        ctx.save();
+        ctx.globalAlpha = 0.04;
+        ctx.globalCompositeOperation = 'overlay';
+        const shift = reduceMotion ? 0 : Math.floor(t * 12) % 16;
+        ctx.translate(shift, (shift * 7) % 16);
+        ctx.fillStyle = grainPattern;
+        ctx.fillRect(-16, -16, w + 32, h + 32);
+        ctx.restore();
+      }
     };
 
     raf = requestAnimationFrame(draw);
