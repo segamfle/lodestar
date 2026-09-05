@@ -119,11 +119,6 @@ body {
   cursor: not-allowed;
 }
 
-/* A full shape dims the cells it will not accept, so the limit is visible before it is hit
-   rather than discovered by clicking into silence. */
-.cell:disabled:not(.is-marked) {
-  opacity: 0.32;
-}
 
 .result {
   display: flex;
