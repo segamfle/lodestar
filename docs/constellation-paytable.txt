@@ -1,0 +1,52 @@
+Solving each shape size independently: threshold for how often it pays,
+steepness for what completing it is worth. Return is forced to 0.96 either way.
+
+  K= 5  win spread  25.2pp  top error   0.00x  [s3:15.0x@9%  s4:22.0x@17%  s5:32.0x@25%  s6:48.0x@34%]
+  K= 6  win spread  21.9pp  top error   0.00x  [s3:15.0x@13%  s4:22.0x@23%  s5:32.0x@34%  s6:48.0x@12%]
+  K= 7  win spread  19.4pp  top error   0.00x  [s3:15.0x@18%  s4:22.0x@31%  s5:32.0x@11%  s6:48.0x@19%]
+  K= 8  win spread  21.5pp  top error   0.00x  [s3:15.0x@23%  s4:22.0x@38%  s5:32.0x@17%  s6:48.0x@27%]
+  K= 9  win spread  24.7pp  top error   0.00x  [s3:15.0x@29%  s4:22.0x@12%  s5:32.0x@23%  s6:48.0x@36%]
+  K=10  win spread  19.9pp  top error   0.00x  [s3:15.0x@35%  s4:22.0x@16%  s5:32.0x@30%  s6:48.0x@15%]
+  K=11  win spread  19.8pp  top error   1.63x  [s3:13.4x@41%  s4:22.0x@21%  s5:32.0x@38%  s6:48.0x@21%]
+  K=12  win spread  18.6pp  top error   4.96x  [s3:10.0x@10%  s4:22.0x@27%  s5:32.0x@14%  s6:48.0x@28%]
+  K=13  win spread  23.9pp  top error   7.28x  [s3:7.7x@12%  s4:17.0x@33%  s5:32.0x@19%  s6:48.0x@36%]
+
+
+CHOSEN - 7 stars lit on a 25-cell board
+
+Shape of 3 cells - pays from 2 hits, steepness 3.3690
+  0 hits  P=0.35478261  M=           -  contributes 0.00000000
+  1 hit   P=0.46565217  M=           -  contributes 0.00000000
+  2 hits  P=0.16434783  M=   4.452381x  contributes 0.73173913
+  3 hits  P=0.01521739  M=  15.000000x  contributes 0.22826087
+  expected return 0.960000000000   paid on 17.96% of rounds
+
+Shape of 4 cells - pays from 2 hits, steepness 10.0844
+  0 hits  P=0.24189723  M=           -  contributes 0.00000000
+  1 hit   P=0.45154150  M=           -  contributes 0.00000000
+  2 hits  P=0.25399209  M=   2.181593x  contributes 0.55410731
+  3 hits  P=0.04980237  M=   6.927845x  contributes 0.34502312
+  4 hits  P=0.00276680  M=  22.000000x  contributes 0.06086957
+  expected return 0.960000000000   paid on 30.66% of rounds
+
+Shape of 5 cells - pays from 3 hits, steepness 4.2281
+  0 hits  P=0.16126482  M=           -  contributes 0.00000000
+  1 hit   P=0.40316206  M=           -  contributes 0.00000000
+  2 hits  P=0.32252964  M=           -  contributes 0.00000000
+  3 hits  P=0.10079051  M=   7.568349x  contributes 0.76281782
+  4 hits  P=0.01185771  M=  15.562364x  contributes 0.18453396
+  5 hits  P=0.00039526  M=  32.000000x  contributes 0.01264822
+  expected return 0.960000000000   paid on 11.30% of rounds
+
+Shape of 6 cells - pays from 3 hits, steepness 12.1235
+  0 hits  P=0.10482213  M=           -  contributes 0.00000000
+  1 hit   P=0.33865613  M=           -  contributes 0.00000000
+  2 hits  P=0.36284585  M=           -  contributes 0.00000000
+  3 hits  P=0.16126482  M=   3.959244x  contributes 0.63848677
+  4 hits  P=0.03023715  M=   9.095402x  contributes 0.27501908
+  5 hits  P=0.00213439  M=  20.894481x  contributes 0.04459691
+  6 hits  P=0.00003953  M=  48.000000x  contributes 0.00189723
+  expected return 0.960000000000   paid on 19.37% of rounds
+
+Every shape size returns 0.96 (worst drift 2.22e-16).
+Win rates within 19.4 points of each other; top prizes rise 15x -> 22x -> 32x -> 48x.
