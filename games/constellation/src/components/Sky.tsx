@@ -14,6 +14,8 @@ interface SkyProps {
   order: number[];
   phase: SkyPhase;
   hovered: number | null;
+  /** Identifies the round. Changing it clears the record of what has already landed. */
+  roundKey: string;
 }
 
 /** Seconds a star takes to settle after it lands. Shorter than the gap between arrivals, so
@@ -53,7 +55,7 @@ function makeGrain(size = 128): HTMLCanvasElement {
   return tile;
 }
 
-export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
+export function Sky({ shape, sky, revealed, order, phase, hovered, roundKey }: SkyProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Props read through a ref so the animation loop is built once and never torn down by a
@@ -64,9 +66,16 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
   /** When each star arrived, in animation time, so its bloom is a function of the clock. */
   const arrivalsRef = useRef<Map<number, number>>(new Map());
 
+  // Cleared per round, not per phase.
+  //
+  // This was keyed on the phase returning to idle, which the Again button never does - it
+  // starts the next round straight from 'settled'. So arrival times survived into the new
+  // round, and any cell that had also been lit in the previous one appeared instantly at
+  // full brightness, out of sequence and out of step with its sound. The first round after
+  // a page load looked right and every one after it looked worse.
   useEffect(() => {
-    if (phase === 'idle') arrivalsRef.current = new Map();
-  }, [phase]);
+    arrivalsRef.current = new Map();
+  }, [roundKey]);
 
   useEffect(() => {
     const arrivals = arrivalsRef.current;

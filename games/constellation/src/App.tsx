@@ -269,7 +269,9 @@ export function App() {
       let landed = 0;
       for (const cell of cellsOf(sky)) if (isLit(shape, cell)) landed++;
       setRound({
-        sessionKey: 'demo',
+        // Unique per round: a fixed key would look like the same round to anything keyed on
+        // it, including the board's record of which stars have already landed.
+        sessionKey: `demo:${performance.now()}`,
         knownBefore,
         shape,
         size,
@@ -326,6 +328,7 @@ export function App() {
           order={round?.order ?? []}
           phase={phase}
           hovered={hovered}
+          roundKey={round?.sessionKey ?? 'none'}
         />
 
         <div className="cells" role="group" aria-label="The sky. Mark three to six cells.">
