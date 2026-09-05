@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { COLUMNS, ROWS, isLit } from '../lib/constellation';
+import { COLUMNS, ROWS, boardGrid, isLit } from '../lib/constellation';
 
 export type SkyPhase = 'idle' | 'lighting' | 'settled';
 
@@ -133,11 +133,7 @@ export function Sky({ shape, sky, revealed, order, phase, hovered, roundKey }: S
       ctx.fillStyle = sky2;
       ctx.fillRect(0, 0, w, h);
 
-      const pad = Math.min(w, h) * 0.055;
-      const size = Math.min(w, h) - pad * 2;
-      const left = (w - size) / 2;
-      const top = (h - size) / 2;
-      const step = size / COLUMNS;
+      const { left, top, step } = boardGrid(w, h);
       const radius = step * 0.5;
 
       for (let row = 0; row < ROWS; row++) {

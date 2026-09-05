@@ -50,6 +50,10 @@ class ConstellationAudio {
     if (!Ctor) return; // no Web Audio here; the game stays silent and otherwise unaffected
 
     const ctx = new Ctor();
+    // Safari hands back a suspended context, and resume() has to happen inside the gesture
+    // that created it. Without this the whole first round is silent and everything it
+    // scheduled arrives at once on the next click.
+    if (ctx.state === 'suspended') void ctx.resume();
     const master = ctx.createGain();
     master.gain.value = this.muted ? 0 : 0.85;
     master.connect(ctx.destination);
@@ -117,10 +121,17 @@ class ConstellationAudio {
    * landed on your mark is the only question the game asks.
    */
   star(step: number, onShape: boolean, pan = 0) {
+    this.strike(step, onShape, pan, 0);
+  }
+
+  /** One struck tone, `delay` seconds from now on the audio clock. */
+  private strike(step: number, onShape: boolean, pan: number, delay: number) {
     const v = this.voice();
     if (!v) return;
     const { ctx, space } = v;
-    const at = ctx.currentTime;
+    // A hair of lookahead: scheduling exactly at currentTime starts the attack ramp in the
+    // past, which clips it into a click.
+    const at = ctx.currentTime + delay + 0.008;
 
     const semitones = SCALE[Math.min(step, SCALE.length - 1)];
     const fundamental = 293.66 * Math.pow(2, semitones / 12); // from D4
@@ -153,11 +164,10 @@ class ConstellationAudio {
     if (!v) return;
     const { ctx, space } = v;
 
-    // An arpeggio up the scale, spread across the field.
-    for (let i = 0; i < 4; i++) {
-      const at = i * 0.1;
-      setTimeout(() => this.star(3 + i, true, (i - 1.5) * 0.4), at * 1000);
-    }
+    // An arpeggio up the scale, spread across the field. Scheduled on the audio clock rather
+    // than with timers: the context is running by the time a round can be won, and four
+    // stray timeouts nobody owned used to spill the last note into the next round.
+    for (let i = 0; i < 4; i++) this.strike(3 + i, true, (i - 1.5) * 0.4, i * 0.1);
 
     // A low swell underneath, so it lands in the chest and not only in the ear.
     const now = ctx.currentTime;

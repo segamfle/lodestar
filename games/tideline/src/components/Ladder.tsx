@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { RUNGS, LEVELS } from '../lib/tideline';
-import { rungY, waterlineAt, waterlineFor } from '../lib/tide';
+import { WATER_REST, rungY, waterlineAt, waterlineFor } from '../lib/tide';
 
 export type LadderPhase = 'idle' | 'rising' | 'settled';
 
@@ -12,6 +12,8 @@ interface LadderProps {
   phase: LadderPhase;
   /** Rung the pointer is over, 1-based, for the hover glow. */
   hovered: number | null;
+  /** Identifies the round. Changing it returns the water to rest before the next climb. */
+  roundKey: string;
 }
 
 /** The surface at a given x, as a sum of three swells running at different rates. */
@@ -222,7 +224,7 @@ function paintBell(
   ctx.restore();
 }
 
-export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
+export function Ladder({ stakes, level, phase, hovered, roundKey }: LadderProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   // Props are mirrored into refs so the animation loop reads current values without being
@@ -236,6 +238,18 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
   // the clock says it should be, however many frames actually arrived.
   const riseRef = useRef({ from: waterlineFor(0), to: waterlineFor(0), startedAt: 0 });
   const splashRef = useRef({ at: 0 });
+
+  // Every round starts from rest.
+  //
+  // The climb deliberately resumes from wherever the water currently is, which is right for
+  // a re-render mid-rise and wrong between rounds: the Again button goes from settled
+  // straight to rising without the water ever receding, so round two began partway up the
+  // ladder - or fell, for 2.2 seconds, while the button said the tide was coming in - and
+  // the bells, which are always solved from rest, rang for rungs that were already under.
+  useEffect(() => {
+    riseRef.current = { from: WATER_REST, to: WATER_REST, startedAt: 0 };
+    splashRef.current = { at: 0 };
+  }, [roundKey]);
 
   useEffect(() => {
     const to = waterlineFor(level ?? 0);
@@ -338,10 +352,17 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
       }
 
       // ---- bell over the top rung -----------------------------------------------------
-      const crowned = currentLevel === RUNGS;
+      // Lit by the water, not by the result. Reading the final level meant a winning round
+      // showed a gold, glowing bell from the first frame of the climb - the answer, two
+      // seconds before the reveal. The swing is timed the same way: it starts when the tide
+      // actually reaches the top rung.
+      const crownY = rungY(RUNGS) * h;
+      const crowned = waterY <= crownY;
+      const struck = crowned ? Math.min((now - (rise.startedAt + 1590)) / 1000, 3) : -1;
+      const ring = struck >= 0 ? Math.exp(-struck / 0.9) : 0;
       const bellSize = Math.min(w, h) * 0.075;
-      const swing = crowned && !reduceMotion ? Math.sin(t * 7.5) * 0.22 * surge : 0;
-      paintBell(ctx, w / 2, rungY(RUNGS) * h - h * 0.075, bellSize, crowned, swing);
+      const swing = crowned && !reduceMotion ? Math.sin(t * 7.5) * 0.26 * ring : 0;
+      paintBell(ctx, w / 2, crownY - h * 0.075, bellSize, crowned, swing);
 
       // ---- water ------------------------------------------------------------------------
       const phaseT = reduceMotion ? 0 : t;

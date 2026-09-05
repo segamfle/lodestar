@@ -77,6 +77,8 @@ export function App() {
   const [amountText, setAmountText] = useState('1');
   const [round, setRound] = useState<Round | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Rungs the water has actually reached so far, so the labels do not run ahead of it. */
+  const [submerged, setSubmerged] = useState(0);
   const [muted, setMuted] = useState(audio.muted);
 
   const decimals = snapshot?.token.decimals ?? 18;
@@ -112,7 +114,10 @@ export function App() {
 
   const walletReady = standalone || snapshot?.wallet.status === 'ready';
   const busy = round !== null && round.status !== 'done';
-  const canBet = walletReady && wager > 0n && selected.length > 0 && !busy;
+  // Displayed but never checked, so an over-limit wager left the button live and turned a
+  // chain revert into the player's error message.
+  const withinLimit = maxWager === null || wager <= maxWager;
+  const canBet = walletReady && wager > 0n && selected.length > 0 && withinLimit && !busy;
 
   const toggleRung = useCallback(
     (rung: number) => {
@@ -163,15 +168,26 @@ export function App() {
     const to = waterlineFor(round.level);
 
     audio.startSwell();
-    for (const { rung, at } of rungCrossings(from, to)) {
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const crossings = rungCrossings(from, to);
+
+    for (const { rung, at } of crossings) {
       audio.bell(rung, at, round.stakes[rung - 1] > 0n ? 1 : 0.45);
+      // The label darkens when the water gets there, not when the result arrives. Marking
+      // every rung the tide would eventually reach gave the answer away before the climb.
+      timers.push(setTimeout(() => setSubmerged(rung), at * 1000));
     }
-    if (round.level === RUNGS) audio.crown(1.1);
+
+    // The crown used to fire at a hardcoded 1.1s while the water actually crowns at about
+    // 1.59s, so the loudest sound in the game landed half a second before the thing it was
+    // celebrating.
+    const crownAt = crossings.find((c) => c.rung === RUNGS)?.at;
+    if (crownAt !== undefined) audio.crown(crownAt);
     if (round.level === 0) audio.ebb();
 
-    const settle = setTimeout(() => audio.stopSwell(), RISE_MS);
+    timers.push(setTimeout(() => audio.stopSwell(), RISE_MS));
     return () => {
-      clearTimeout(settle);
+      timers.forEach(clearTimeout);
       audio.stopSwell();
     };
   }, [round]);
@@ -201,6 +217,7 @@ export function App() {
     if (!canBet) return;
     audio.unlock();
     setError(null);
+    setSubmerged(0);
 
     // Sessions the host already knows about, so a new one can be told apart from them if the
     // optimistic row is dropped before the indexed one lands.
@@ -217,7 +234,9 @@ export function App() {
     if (standalone || !hostApi) {
       const level = demoLevel();
       setRound({
-        sessionKey: 'demo',
+        // Unique per round: a constant key looks like one continuous round to anything keyed
+        // on it, including the water's memory of where it started.
+        sessionKey: `demo:${performance.now()}`,
         knownBefore,
         stakes,
         wager,
@@ -269,12 +288,13 @@ export function App() {
           level={round?.status === 'rising' || round?.status === 'done' ? round.level : null}
           phase={phase}
           hovered={hovered}
+          roundKey={round?.sessionKey ?? 'none'}
         />
 
         <div className="rung-hits" aria-hidden={busy}>
           {Array.from({ length: RUNGS }, (_, i) => RUNGS - i).map((rung) => {
             const active = selected.includes(rung);
-            const covered = round?.level !== null && round?.level !== undefined && rung <= round.level;
+            const covered = rung <= submerged;
             return (
               <button
                 key={rung}
@@ -352,7 +372,14 @@ export function App() {
         </button>
 
         {round?.status === 'done' && (
-          <button type="button" className="reset" onClick={() => setRound(null)}>
+          <button
+            type="button"
+            className="reset"
+            onClick={() => {
+              setRound(null);
+              setSubmerged(0);
+            }}
+          >
             Clear
           </button>
         )}

@@ -43,6 +43,10 @@ class TidelineAudio {
     if (!Ctor) return; // no Web Audio here; the game stays silent and otherwise unaffected
 
     const ctx = new Ctor();
+    // Safari hands back a suspended context, and resume() has to happen inside the gesture
+    // that created it. Without this the whole first round is silent and everything it
+    // scheduled arrives at once on the next click.
+    if (ctx.state === 'suspended') void ctx.resume();
     const master = ctx.createGain();
     master.gain.value = this.muted ? 0 : 0.9;
     master.connect(ctx.destination);

@@ -153,3 +153,29 @@ export function demoSky(): bigint {
   }
   return sky;
 }
+
+// ---------------------------------------------------------------- board geometry
+
+/** How much of the shorter side is left as margin around the grid. */
+export const BOARD_PAD = 0.055;
+
+/**
+ * Where the grid sits inside a board of this size.
+ *
+ * The canvas and the click targets must agree exactly, so both read this. They did not
+ * always: the canvas computed a square of 89% of the shorter side while the stylesheet
+ * asked for 80% of the width via a container query with no container to resolve against.
+ * The two squares were both centred, so the error was zero in the middle and grew toward
+ * the edges - a band near the rim of the board that looked like one cell and marked its
+ * neighbour, which reads as the game mis-registering clicks at random.
+ */
+export function boardGrid(width: number, height: number) {
+  const pad = Math.min(width, height) * BOARD_PAD;
+  const size = Math.min(width, height) - pad * 2;
+  return {
+    size,
+    left: (width - size) / 2,
+    top: (height - size) / 2,
+    step: size / COLUMNS,
+  };
+}

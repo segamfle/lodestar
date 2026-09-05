@@ -84,20 +84,9 @@ body {
    the glow belong to the canvas, which can draw them far better than a border can. */
 .cells {
   position: absolute;
-  inset: 0;
   display: grid;
-  place-content: center;
   grid-template-columns: repeat(5, 1fr);
   grid-template-rows: repeat(5, 1fr);
-  width: min(80%, 80cqh);
-  aspect-ratio: 1;
-  margin: auto;
-}
-
-@supports not (width: 1cqh) {
-  .cells {
-    width: 80%;
-  }
 }
 
 .cell {

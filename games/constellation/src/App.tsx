@@ -11,6 +11,7 @@ import {
   MAX_SHAPE,
   MIN_SHAPE,
   STARS,
+  boardGrid,
   cellsOf,
   chanceOfAnyReturn,
   demoSky,
@@ -98,6 +99,27 @@ export function App() {
   const [revealed, setRevealed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [muted, setMuted] = useState(audio.muted);
+
+  // The hit targets are laid out from the same function the canvas draws with, measured off
+  // the board itself. A stylesheet guessing at the same square drifted apart from it.
+  const boardRef = useRef<HTMLElement | null>(null);
+  const [boardSize, setBoardSize] = useState({ width: 0, height: 0 });
+  useEffect(() => {
+    const node = boardRef.current;
+    if (!node) return;
+    const measure = () => {
+      const rect = node.getBoundingClientRect();
+      setBoardSize({ width: rect.width, height: rect.height });
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const grid = useMemo(
+    () => boardGrid(boardSize.width, boardSize.height),
+    [boardSize.width, boardSize.height],
+  );
   const decimals = snapshot?.token.decimals ?? 18;
   const symbol = snapshot?.token.symbol ?? 'chUSD';
   const size = marks.length;
@@ -124,7 +146,10 @@ export function App() {
   }, [snapshot, size, legalShape]);
   const walletReady = standalone || snapshot?.wallet.status === 'ready';
   const busy = round !== null && round.status !== 'done';
-  const canBet = walletReady && wager > 0n && legalShape && !busy;
+  // The table limit was displayed but never checked, so an over-limit wager left the button
+  // live and turned a chain revert into the player's error message.
+  const withinLimit = maxWager === null || wager <= maxWager;
+  const canBet = walletReady && wager > 0n && legalShape && withinLimit && !busy;
   const hits = useMemo(() => {
     if (!round?.sky) return 0;
     let count = 0;
@@ -141,15 +166,15 @@ export function App() {
       // Built from the latest state rather than a captured copy: two quick clicks used to
       // both compute from the same stale value, so the second discarded the first and a mark
       // the player had just placed vanished.
+      // The sound belongs out here: React double-invokes updaters in development and may
+      // re-run them during a concurrent render, and an updater that makes noise makes it
+      // twice.
+      audio.mark(!marks.includes(cell), panFor(cell));
       setMarks((current) => {
-        if (current.includes(cell)) {
-          audio.mark(false, panFor(cell));
-          return current.filter((c) => c !== cell);
-        }
+        if (current.includes(cell)) return current.filter((c) => c !== cell);
         // A full shape makes room by dropping its oldest mark rather than refusing the
         // click. Disabling the rest of the board once six were placed meant the shape could
         // only be dismantled, never moved, and a board that stops responding reads as broken.
-        audio.mark(true, panFor(cell));
         const next = current.length >= MAX_SHAPE ? current.slice(1) : current;
         return [...next, cell];
       });
@@ -168,6 +193,15 @@ export function App() {
       sky = drawn as bigint;
     } catch {
       setError('The round settled but its sky could not be read.');
+      setRound(null);
+      return;
+    }
+
+    // A forfeited or cancelled session carries the pre-draw state, so no sky was ever
+    // written. There is nothing to reveal; say so and let the player start again rather than
+    // leaving the button reading 'The sky is lighting' with no way out but a reload.
+    if (sky === 0n) {
+      setError('That round was cancelled on chain before the sky was drawn.');
       setRound(null);
       return;
     }
@@ -284,10 +318,14 @@ export function App() {
   const phase: SkyPhase =
     round?.status === 'lighting' ? 'lighting' : round?.status === 'done' ? 'settled' : 'idle';
   const money = (value: bigint) => `${formatAmount(value, decimals)} ${symbol}`;
-  const boardShape = round && round.status !== 'opening' ? round.shape : shape;
+  // Only a round still in flight owns the board. Once it is done the player is choosing
+  // again, and the board has to show what they are choosing - it used to stay frozen on the
+  // finished round, so every mark placed afterwards was silent and invisible.
+  const settling = round !== null && round.status !== 'opening' && round.status !== 'done';
+  const boardShape = settling ? round.shape : shape;
   return (
     <main className="constellation">
-      <section className="board">
+      <section className="board" ref={boardRef}>
         <Sky
           shape={boardShape}
           sky={round?.sky ?? null}
@@ -297,7 +335,12 @@ export function App() {
           hovered={hovered}
           roundKey={round?.sessionKey ?? 'none'}
         />
-        <div className="cells" role="group" aria-label="The sky. Mark three to six cells.">
+        <div
+          className="cells"
+          role="group"
+          aria-label="The sky. Mark three to six cells."
+          style={{ left: grid.left, top: grid.top, width: grid.size, height: grid.size }}
+        >
           {Array.from({ length: CELLS }, (_, cell) => {
             const marked = isLit(boardShape, cell);
             const star = round?.sky ? isLit(round.sky, cell) : false;
