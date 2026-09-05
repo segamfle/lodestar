@@ -4,6 +4,8 @@ import { decodeAbiParameters, encodeAbiParameters, formatUnits, parseUnits } fro
 import { Ladder, type LadderPhase } from './components/Ladder';
 import { useCasinoHost } from './lib/useCasinoHost';
 import { LEVELS, PAYTABLE, RUNGS, spreadEvenly, summarise, totalStaked } from './lib/tideline';
+import { rungCrossings, waterlineFor } from './lib/tide';
+import { audio } from './lib/audio';
 
 const EMPTY_HEX = '0x' as const;
 const STAKES_ABI = [{ type: 'uint256[6]' }] as const;
@@ -48,6 +50,7 @@ export function App() {
   const [amountText, setAmountText] = useState('1');
   const [round, setRound] = useState<Round | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [muted, setMuted] = useState(audio.muted);
 
   const decimals = snapshot?.token.decimals ?? 18;
   const symbol = snapshot?.token.symbol ?? 'chUSD';
@@ -87,6 +90,8 @@ export function App() {
   const toggleRung = useCallback(
     (rung: number) => {
       if (busy) return;
+      audio.unlock();
+      audio.knock(rung);
       setSelected((current) =>
         current.includes(rung)
           ? current.filter((r) => r !== rung)
@@ -123,6 +128,27 @@ export function App() {
     );
   }, [snapshot, round]);
 
+  // Score the climb. Crossing times come from the same curve the canvas animates, so a rung
+  // chimes at the moment the water covers it rather than on a guessed offset.
+  useEffect(() => {
+    if (!round || round.status !== 'rising' || round.level === null) return;
+    const from = waterlineFor(0);
+    const to = waterlineFor(round.level);
+
+    audio.startSwell();
+    for (const { rung, at } of rungCrossings(from, to)) {
+      audio.bell(rung, at, round.stakes[rung - 1] > 0n ? 1 : 0.45);
+    }
+    if (round.level === RUNGS) audio.crown(1.1);
+    if (round.level === 0) audio.ebb();
+
+    const settle = setTimeout(() => audio.stopSwell(), RISE_MS);
+    return () => {
+      clearTimeout(settle);
+      audio.stopSwell();
+    };
+  }, [round]);
+
   // Let the water finish climbing, then tell the host to reveal — until that call the host
   // hides the payout so its own balance display cannot spoil the result.
   const hostApiRef = useRef(hostApi);
@@ -146,6 +172,7 @@ export function App() {
 
   const placeBet = useCallback(async () => {
     if (!canBet) return;
+    audio.unlock();
     setError(null);
 
     const staked = totalStaked(stakes);
@@ -289,7 +316,24 @@ export function App() {
         {standalone && <p className="hint standalone">Standalone demo — outcomes drawn locally.</p>}
         {!standalone && !walletReady && <p className="hint">Waiting for the host wallet.</p>}
 
-        <p className="rtp">Return to player 96% · every rung, every spread, identical</p>
+        <div className="footer">
+          <p className="rtp">Return to player 96% · every rung, every spread, identical</p>
+          <button
+            type="button"
+            className="mute"
+            onClick={() => {
+              const next = !muted;
+              audio.unlock();
+              audio.setMuted(next);
+              setMuted(next);
+            }}
+            aria-pressed={muted}
+            aria-label={muted ? 'Unmute' : 'Mute'}
+            title={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? '🔇' : '🔊'}
+          </button>
+        </div>
       </section>
     </main>
   );

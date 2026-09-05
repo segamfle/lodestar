@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "verify:tideline": "node games/tideline/verify-rtp.mjs"
+    "verify:tideline": "node games/tideline/verify-rtp.mjs",
+    "test:tideline": "node games/tideline/src/lib/tide.test.mts"
   },
   "dependencies": {
     "viem": "^2.56.3"

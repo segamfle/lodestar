@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { RUNGS, LEVELS } from '../lib/tideline';
+import { rungY, waterlineAt, waterlineFor } from '../lib/tide';
 
 export type LadderPhase = 'idle' | 'rising' | 'settled';
 
@@ -11,28 +12,6 @@ interface LadderProps {
   phase: LadderPhase;
   /** Rung the pointer is over, 1-based, for the hover glow. */
   hovered: number | null;
-}
-
-/** Where each rung sits vertically, as a fraction of the scene height from the top. */
-const RUNG_TOP = 0.12;
-const RUNG_BOTTOM = 0.82;
-const rungY = (rung: number) =>
-  RUNG_TOP + ((RUNGS - rung) / (RUNGS - 1)) * (RUNG_BOTTOM - RUNG_TOP);
-
-/**
- * Time constant for the tide, in seconds. The water covers most of the distance in about a
- * second and a half and keeps creeping after, which is the shape that makes a climb feel
- * like it might stop just short of your rung.
- */
-const TIDE_TAU = 0.42;
-
-/** Waterline for a tide level. Level 0 sits below the ladder; level 6 drowns the top rung. */
-function waterlineFor(level: number): number {
-  if (level <= 0) return 0.94;
-  const target = rungY(Math.min(level, RUNGS));
-  // Settle a little above the rung it covers, so a covered rung reads as submerged rather
-  // than merely touched.
-  return target - 0.018;
 }
 
 /** The surface at a given x, as a sum of three swells running at different rates. */
@@ -136,8 +115,8 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
     const { from, to: previousTo, startedAt } = riseRef.current;
 
     // Start from wherever the water actually is, so a re-draw mid-climb does not snap.
-    const elapsed = (now - startedAt) / 1000;
-    const settled = startedAt === 0 ? previousTo : from + (previousTo - from) * (1 - Math.exp(-elapsed / TIDE_TAU));
+    const settled =
+      startedAt === 0 ? previousTo : waterlineAt(from, previousTo, (now - startedAt) / 1000);
 
     riseRef.current = { from: settled, to, startedAt: now };
     if (phase === 'rising') splashRef.current = { at: now };
@@ -182,9 +161,9 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
         propsRef.current;
 
       const rise = riseRef.current;
-      const elapsed = (now - rise.startedAt) / 1000;
-      const progress = reduceMotion ? 1 : 1 - Math.exp(-elapsed / TIDE_TAU);
-      const waterline = rise.from + (rise.to - rise.from) * progress;
+      const waterline = reduceMotion
+        ? rise.to
+        : waterlineAt(rise.from, rise.to, (now - rise.startedAt) / 1000);
       const surgeAge = (now - splashRef.current.at) / 1000;
       const surge = splashRef.current.at === 0 ? 0 : Math.exp(-surgeAge / 0.55);
 
