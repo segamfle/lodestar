@@ -181,8 +181,13 @@ export function Sky({ shape, sky, revealed, order, phase, hovered, roundKey }: S
 
           // A star that has arrived.
           if (starHere && bloom > 0) {
-            const brightness = marked ? 1 : 0.62;
-            const spark = age >= 0 && age < SPARK ? 1 - age / SPARK : 0;
+            // A star that missed the shape has to read as background, not as an event.
+            // Brightness used to scale only the core's radius while its colour and alpha
+            // stayed identical to a hit, so seven misses out-shone one hit on sheer area and
+            // a total loss was the brightest frame the game ever drew - the picture saying
+            // the opposite of the result.
+            const brightness = marked ? 1 : 0.26;
+            const spark = marked && age >= 0 && age < SPARK ? 1 - age / SPARK : 0;
 
             // A ring of light thrown outward on arrival. Without a moment of impact the eye
             // slides over a star that simply faded up, and seven of them become one event.
@@ -201,9 +206,15 @@ export function Sky({ shape, sky, revealed, order, phase, hovered, roundKey }: S
 
             const reach = radius * (1.4 * bloom + 0.5 * spark);
             const halo = ctx.createRadialGradient(x, y, 0, x, y, reach);
-            halo.addColorStop(0, `rgba(255,248,220,${((0.5 + spark * 0.4) * bloom * brightness).toFixed(3)})`);
-            halo.addColorStop(0.35, `rgba(255,214,140,${(0.22 * bloom * brightness).toFixed(3)})`);
-            halo.addColorStop(1, 'rgba(255,214,140,0)');
+            if (marked) {
+              halo.addColorStop(0, `rgba(255,248,220,${((0.5 + spark * 0.4) * bloom).toFixed(3)})`);
+              halo.addColorStop(0.35, `rgba(255,214,140,${(0.22 * bloom).toFixed(3)})`);
+              halo.addColorStop(1, 'rgba(255,214,140,0)');
+            } else {
+              // Cold and dim: a star that landed on nothing.
+              halo.addColorStop(0, `rgba(150,178,214,${(0.16 * bloom).toFixed(3)})`);
+              halo.addColorStop(1, 'rgba(150,178,214,0)');
+            }
             ctx.fillStyle = halo;
             ctx.beginPath();
             ctx.arc(x, y, reach, 0, Math.PI * 2);
@@ -211,19 +222,24 @@ export function Sky({ shape, sky, revealed, order, phase, hovered, roundKey }: S
 
             ctx.beginPath();
             ctx.arc(x, y, core, 0, Math.PI * 2);
-            ctx.fillStyle = `rgba(255,252,240,${Math.min(1, bloom * 1.2)})`;
+            ctx.fillStyle = marked
+              ? `rgba(255,252,240,${Math.min(1, bloom * 1.2).toFixed(3)})`
+              : `rgba(150,178,214,${(0.42 * bloom).toFixed(3)})`;
             ctx.fill();
 
-            // Four points of light, the way a bright star reads to the eye.
-            const spike = radius * (0.9 + 0.25 * Math.sin(t * 3 + cell)) * bloom * brightness;
-            ctx.strokeStyle = `rgba(255,240,200,${0.4 * bloom * brightness})`;
-            ctx.lineWidth = Math.max(1, radius * 0.035);
-            ctx.beginPath();
-            ctx.moveTo(x - spike, y);
-            ctx.lineTo(x + spike, y);
-            ctx.moveTo(x, y - spike);
-            ctx.lineTo(x, y + spike);
-            ctx.stroke();
+            // The four points of light belong to a hit alone. On a miss they were most of
+            // what made a losing board look like a winning one.
+            if (marked) {
+              const spike = radius * (0.9 + 0.25 * Math.sin(t * 3 + cell)) * bloom;
+              ctx.strokeStyle = `rgba(255,240,200,${(0.4 * bloom).toFixed(3)})`;
+              ctx.lineWidth = Math.max(1, radius * 0.035);
+              ctx.beginPath();
+              ctx.moveTo(x - spike, y);
+              ctx.lineTo(x + spike, y);
+              ctx.moveTo(x, y - spike);
+              ctx.lineTo(x, y + spike);
+              ctx.stroke();
+            }
           }
         }
       }

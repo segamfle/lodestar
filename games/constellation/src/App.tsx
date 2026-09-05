@@ -226,9 +226,14 @@ export function App() {
     if (!round || round.status !== 'lighting' || !round.sky) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     let landed = 0;
+    let heard = 0;
     round.order.forEach((cell, index) => {
       const onShape = isLit(round.shape, cell);
       if (onShape) landed++;
+      // Pitched by how many have landed, not by position in the reveal. Keyed on the index
+      // the phrase was identical in every round whatever happened, so ten rounds were the
+      // same melody ten times over and the sound said nothing about the result.
+      const step = onShape ? heard++ : 0;
       // Each star's sound fires from the same timer that reveals it, rather than being
       // queued ahead against the audio clock. A context that has only just been unlocked has
       // not started advancing yet, so pre-scheduled tones all landed on the same instant
@@ -236,7 +241,8 @@ export function App() {
       timers.push(
         setTimeout(() => {
           setRevealed(index + 1);
-          audio.star(index, onShape, panFor(cell));
+          if (onShape) audio.star(step, true, panFor(cell));
+          else audio.miss(panFor(cell));
         }, index * STAR_GAP_MS),
       );
     });

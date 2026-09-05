@@ -58,6 +58,39 @@ for (let level = 0; level <= RUNGS; level++) {
   }
 }
 
+// The whole reason the tide rises at one speed rather than easing toward its mark: two
+// different outcomes have to look identical until the lower one stops. The exponential this
+// replaced was fastest at the very start, so a level-5 and a level-6 rise were already six
+// percent of the scene apart within half a second - the answer, well over a second before
+// the game admitted it.
+{
+  const rest = waterlineFor(0);
+  let firstVisibleDifference = Infinity;
+  for (let t = 0; t <= 2.2; t += 0.01) {
+    const five = waterlineAt(rest, waterlineFor(5), t);
+    const six = waterlineAt(rest, waterlineFor(6), t);
+    if (Math.abs(five - six) > 0.01) {
+      firstVisibleDifference = t;
+      break;
+    }
+  }
+  check(
+    'a level 5 and a level 6 tide are indistinguishable for over a second',
+    firstVisibleDifference > 1.2,
+    `they part at ${firstVisibleDifference.toFixed(2)}s`,
+  );
+
+  // And nothing may overshoot: the water must never rise past the rung it stops at.
+  let overshoot = 0;
+  for (let level = 1; level <= RUNGS; level++) {
+    const target = waterlineFor(level);
+    for (let t = 0; t <= 3; t += 0.02) {
+      overshoot = Math.max(overshoot, target - waterlineAt(rest, target, t));
+    }
+  }
+  check('the tide never rises past its mark', overshoot <= 1e-9, `worst ${overshoot.toExponential(1)}`);
+}
+
 // A falling or motionless tide covers nothing and must stay silent.
 check('a still tide chimes nothing', rungCrossings(rest, rest).length === 0);
 check('a falling tide chimes nothing', rungCrossings(waterlineFor(6), rest).length === 0);

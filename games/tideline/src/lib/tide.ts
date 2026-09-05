@@ -16,11 +16,21 @@ export const RUNG_BOTTOM = 0.82;
 export const WATER_REST = 0.9;
 
 /**
- * Time constant of the climb, in seconds. The water covers most of the distance in about a
- * second and a half and keeps creeping after, which is the shape that makes a rise feel like
- * it might stop just short of your rung.
+ * How long the tide takes to reach the top of the ladder. Shorter climbs take proportionally
+ * less time, because the water moves at one speed.
  */
-export const TIDE_TAU = 0.42;
+export const TIDE_FULL_RISE = 1.6;
+
+/**
+ * Seconds spent easing into the stop, so the water settles rather than halting like a lift.
+ *
+ * Deliberately short. The waterline comes to rest 0.018 of the scene above the rung it
+ * covers, and the eased stretch has to stay inside that gap: any longer and it reaches back
+ * across the last rung, so the moment the water crosses it is no longer a straight division
+ * and every bell after it rings early. Held under the gap, every crossing stays linear and
+ * exactly solvable.
+ */
+export const TIDE_SETTLE = 0.03;
 
 export const rungY = (rung: number) =>
   RUNG_TOP + ((RUNGS - rung) / (RUNGS - 1)) * (RUNG_BOTTOM - RUNG_TOP);
@@ -33,29 +43,56 @@ export function waterlineFor(level: number): number {
   return rungY(Math.min(level, RUNGS)) - 0.018;
 }
 
-/** Waterline `seconds` into a climb from `from` toward `to`. */
+/**
+ * Waterline `seconds` into a climb from `from` toward `to`.
+ *
+ * Constant speed, not an exponential approach.
+ *
+ * An exponential is fastest at the very start and only decays, so two different tides
+ * separated visibly almost immediately - at 0.42 seconds a level-5 and a level-6 rise were
+ * already sixty pixels apart on a normal screen, which told the player the answer a full
+ * 1.8 seconds before the game admitted it. There was no suspense mechanism at all. Rising at
+ * one speed means every tide looks identical until the one it is going to stop at, and the
+ * question stays open until the water stops.
+ *
+ * The last fraction of a second eases, so it settles instead of halting.
+ */
 export function waterlineAt(from: number, to: number, seconds: number): number {
-  return from + (to - from) * (1 - Math.exp(-Math.max(seconds, 0) / TIDE_TAU));
+  const distance = from - to;
+  if (distance <= 0) return to;
+
+  const speed = (WATER_REST - waterlineFor(RUNGS)) / TIDE_FULL_RISE;
+  const travel = Math.max(seconds, 0) * speed;
+  const remaining = distance - travel;
+  if (remaining <= 0) return to;
+
+  // Ease only the final stretch: cubic on the last TIDE_SETTLE seconds of travel.
+  const settleDistance = speed * TIDE_SETTLE;
+  if (remaining < settleDistance) {
+    const progress = 1 - remaining / settleDistance;
+    return to + settleDistance * Math.pow(1 - progress, 3);
+  }
+  return to + remaining;
 }
 
 /**
  * When the rising water crosses each rung, in seconds from the start of the climb.
  *
- * Solved rather than sampled: the curve is `from + (to - from)(1 - e^(-t/tau))`, so the
- * crossing time for a rung at height y is `-tau * ln((to - y) / (to - from))`. Rungs the
- * water never reaches are left out.
+ * Solved rather than sampled, so a bell rings at the moment the water arrives rather than on
+ * a guessed offset. At constant speed the crossing time is simply the distance travelled
+ * divided by the speed, with the settle stretch ignored - it applies only past the last rung
+ * the tide reaches. Rungs the water never gets to are left out.
  */
 export function rungCrossings(from: number, to: number): { rung: number; at: number }[] {
   const crossings: { rung: number; at: number }[] = [];
   const span = to - from;
   if (span >= 0) return crossings; // the water is falling or still; nothing gets covered
 
+  const speed = (WATER_REST - waterlineFor(RUNGS)) / TIDE_FULL_RISE;
   for (let rung = 1; rung <= RUNGS; rung++) {
     const y = rungY(rung);
     if (y <= to || y >= from) continue; // already wet, or never reached
-    const ratio = (to - y) / span;
-    if (ratio <= 0 || ratio >= 1) continue;
-    crossings.push({ rung, at: -TIDE_TAU * Math.log(ratio) });
+    crossings.push({ rung, at: (from - y) / speed });
   }
   return crossings.sort((a, b) => a.at - b.at);
 }

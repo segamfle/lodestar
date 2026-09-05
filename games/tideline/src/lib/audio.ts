@@ -12,7 +12,19 @@
  * context before a gesture, and a game that fights that ends up silent for the whole session.
  */
 
+import { createSpace, type Space } from './space';
+
 const STORAGE_KEY = 'tideline:muted';
+
+/**
+ * Where each rung sits, in semitones from the lowest.
+ *
+ * This was an even division of an octave, which is a whole-tone scale - rootless by
+ * construction, every step the same interval, so the sixth rung was not an arrival but simply
+ * another step and the climax had nowhere to land. These intervals put the top rung an octave
+ * above the bottom, so crowning the ladder resolves.
+ */
+const RUNG_SEMITONES = [0, 3, 5, 7, 10, 12];
 
 /** Hum, prime, tierce, quint, nominal — the partials that make metal sound like a bell. */
 const BELL_PARTIALS = [
@@ -27,9 +39,9 @@ const BELL_PARTIALS = [
 class TidelineAudio {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private space: Space | null = null;
   private noise: AudioBuffer | null = null;
-  private swell: { source: AudioBufferSourceNode; gain: GainNode; filter: BiquadFilterNode } | null =
-    null;
+  private swell: { gain: GainNode; sources: AudioBufferSourceNode[] } | null = null;
 
   muted = readMuted();
 
@@ -48,8 +60,17 @@ class TidelineAudio {
     // scheduled arrives at once on the next click.
     if (ctx.state === 'suspended') void ctx.resume();
     const master = ctx.createGain();
-    master.gain.value = this.muted ? 0 : 0.9;
-    master.connect(ctx.destination);
+    master.gain.value = this.muted ? 0 : 1.6;
+
+    // Nothing was catching the peaks and the mix sat far below where it should. The
+    // compressor buys the headroom to bring the whole harbour up.
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -12;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 4;
+    limiter.attack.value = 0.004;
+    limiter.release.value = 0.18;
+    master.connect(limiter).connect(ctx.destination);
 
     // Two seconds of white noise, reused for every watery sound.
     const buffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -59,6 +80,11 @@ class TidelineAudio {
     this.ctx = ctx;
     this.master = master;
     this.noise = buffer;
+    // A harbour has a stone wall three feet away. Everything here used to be bone dry and
+    // perfectly mono - measured, the two channels were identical to three decimal places -
+    // which is most of why it sounded like a signal generator rather than a place. Shorter
+    // and darker than Constellation's sky, because this room has walls.
+    this.space = createSpace(ctx, master, { seconds: 2.4, decay: 2, wet: 0.26, damping: 2400 });
   }
 
   setMuted(muted: boolean) {
@@ -70,31 +96,36 @@ class TidelineAudio {
     }
     if (this.master && this.ctx) {
       this.master.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.master.gain.setTargetAtTime(muted ? 0 : 0.9, this.ctx.currentTime, 0.05);
+      this.master.gain.setTargetAtTime(muted ? 0 : 1.6, this.ctx.currentTime, 0.05);
     }
   }
 
   /** A knock on wet timber. Pitched down as you go up the ladder, so the rungs feel ordered. */
   knock(rung: number) {
     const ctx = this.ctx;
-    if (!ctx || !this.master || !this.noise || this.muted) return;
-    const now = ctx.currentTime;
+    if (!ctx || !this.space || !this.noise || this.muted) return;
+    const now = ctx.currentTime + 0.008;
 
     const source = ctx.createBufferSource();
     source.buffer = this.noise;
     source.playbackRate.value = 0.8 + Math.random() * 0.4;
 
+    // A bandpass over noise loses power as its centre descends.
+    const centre = 900 - rung * 70;
+
     const band = ctx.createBiquadFilter();
     band.type = 'bandpass';
-    band.frequency.value = 900 - rung * 70;
+    band.frequency.value = centre;
     band.Q.value = 4.5;
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.5, now + 0.004);
+    // The same click on rung 6 measured nearly nine decibels quieter than on rung 1.
+    // Compensating by the square root of the frequency ratio makes the ladder respond evenly.
+    gain.gain.exponentialRampToValueAtTime(0.5 * Math.sqrt(830 / centre), now + 0.004);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
 
-    source.connect(band).connect(gain).connect(this.master);
+    source.connect(band).connect(gain).connect(this.space.place((rung - 3.5) * 0.16));
     source.start(now);
     source.stop(now + 0.16);
   }
@@ -102,20 +133,42 @@ class TidelineAudio {
   /** One bell strike. `rung` picks the pitch; the top rung gets the loudest, longest voice. */
   bell(rung: number, when = 0, strength = 1) {
     const ctx = this.ctx;
-    if (!ctx || !this.master || this.muted) return;
-    const at = ctx.currentTime + Math.max(when, 0);
+    if (!ctx || !this.space || this.muted) return;
+    const at = ctx.currentTime + Math.max(when, 0) + 0.008;
 
-    // Rising rungs ring higher, so a climb up the ladder is an ascending phrase.
-    const fundamental = 196 * Math.pow(2, (rung - 1) / 6);
+    // Rising rungs ring higher, so a climb up the ladder is an ascending phrase that lands an
+    // octave up when the tide crowns.
+    const fundamental = 196 * Math.pow(2, RUNG_SEMITONES[Math.min(rung, 6) - 1] / 12);
 
-    const bus = ctx.createGain();
+    const bus = this.space.place((rung - 3.5) * 0.12);
     bus.gain.value = 0.22 * strength;
-    bus.connect(this.master);
+
+    // Struck metal is broadband for the first twenty milliseconds. Measured, this bell had
+    // nothing at all above 1 kHz - a blob rather than a strike, and that transient is the
+    // whole difference between a bell and an oscillator.
+    if (this.noise) {
+      const clapper = ctx.createBufferSource();
+      clapper.buffer = this.noise;
+      const body = ctx.createBiquadFilter();
+      body.type = 'bandpass';
+      body.frequency.value = 3200;
+      body.Q.value = 1.1;
+      const strike = ctx.createGain();
+      strike.gain.setValueAtTime(0.0001, at);
+      strike.gain.exponentialRampToValueAtTime(0.38 * strength, at + 0.002);
+      strike.gain.exponentialRampToValueAtTime(0.0001, at + 0.032);
+      clapper.connect(body).connect(strike).connect(bus);
+      clapper.start(at);
+      clapper.stop(at + 0.05);
+    }
 
     for (const partial of BELL_PARTIALS) {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.value = fundamental * partial.ratio;
+      // Every strike was bit-identical. A few cents of drift is what the ear uses to decide
+      // that something was cast rather than computed.
+      osc.detune.value = (Math.random() - 0.5) * 7;
 
       const gain = ctx.createGain();
       gain.gain.setValueAtTime(0.0001, at);
@@ -129,30 +182,60 @@ class TidelineAudio {
   }
 
   /** The wash of water climbing the wall. Held until `stopSwell`. */
-  startSwell() {
+  startSwell(level: number) {
     const ctx = this.ctx;
     if (!ctx || !this.master || !this.noise || this.muted) return;
     this.stopSwell();
     const now = ctx.currentTime;
 
-    const source = ctx.createBufferSource();
-    source.buffer = this.noise;
-    source.loop = true;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(240, now);
-    // Opening the filter as the water rises reads as the sound getting closer, not just louder.
-    filter.frequency.exponentialRampToValueAtTime(1500, now + 1.8);
-    filter.Q.value = 0.7;
-
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.32, now + 0.5);
+    // Scaled by the tide. The wash used to be the same level whatever happened, and since it
+    // dominated the mix a jackpot and a bust measured five decibels apart - with the bust
+    // actually louder above a kilohertz.
+    gain.gain.exponentialRampToValueAtTime(0.1 + level * 0.045, now + 0.5);
+    gain.connect(this.master);
 
-    source.connect(filter).connect(gain).connect(this.master);
-    source.start(now);
-    this.swell = { source, gain, filter };
+    // Two sides at slightly different playback rates. One mono source is a wall of noise in
+    // the middle of the head; two decorrelated ones are weather.
+    const sources: AudioBufferSourceNode[] = [];
+    for (const [pan, rate] of [[-0.85, 1.0], [0.85, 1.013]] as const) {
+      const source = ctx.createBufferSource();
+      source.buffer = this.noise;
+      source.loop = true;
+      source.playbackRate.value = rate;
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(240, now);
+      // Opening the filter as the water rises reads as the sound getting closer, not louder.
+      filter.frequency.exponentialRampToValueAtTime(1500, now + 1.8);
+      filter.Q.value = 0.7;
+
+      const side = ctx.createStereoPanner();
+      side.pan.value = pan;
+
+      source.connect(filter).connect(side).connect(gain);
+      source.start(now);
+      sources.push(source);
+    }
+
+    this.swell = { gain, sources };
+  }
+
+  /**
+   * Pull the wash down so something else can be heard over it.
+   *
+   * The bells were competing with a constant bed of noise, which is why the loudest moment in
+   * the game barely registered against the quietest.
+   */
+  duckSwell(when: number, seconds = 1.1) {
+    const ctx = this.ctx;
+    const swell = this.swell;
+    if (!ctx || !swell) return;
+    const at = ctx.currentTime + Math.max(when, 0);
+    swell.gain.gain.setTargetAtTime(0.06, at, 0.06);
+    swell.gain.gain.setTargetAtTime(0.24, at + seconds, 0.35);
   }
 
   stopSwell() {
@@ -164,7 +247,7 @@ class TidelineAudio {
     swell.gain.gain.cancelScheduledValues(now);
     swell.gain.gain.setValueAtTime(Math.max(swell.gain.gain.value, 0.0001), now);
     swell.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
-    swell.source.stop(now + 0.9);
+    for (const source of swell.sources) source.stop(now + 0.9);
   }
 
   /** The ladder came up dry. Water pulling back off stone, and nothing else. */
@@ -197,6 +280,25 @@ class TidelineAudio {
     this.bell(6, when, 1.6);
     this.bell(6, when + 0.42, 1.1);
     this.bell(6, when + 0.9, 0.7);
+
+    // Measured, there was nothing below 100 Hz anywhere in this game - the crown was a
+    // 125 Hz-to-1 kHz blob. A note two octaves under the bell is what puts it in the chest
+    // rather than only in the ear.
+    const ctx = this.ctx;
+    if (!ctx || !this.space || this.muted) return;
+    const at = ctx.currentTime + Math.max(when, 0);
+    for (const [frequency, level, seconds] of [[87.31, 0.2, 1.9], [174.62, 0.06, 1.2]] as const) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = frequency;
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(level, at + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + seconds);
+      osc.connect(gain).connect(this.space.input);
+      osc.start(at);
+      osc.stop(at + seconds + 0.1);
+    }
   }
 }
 

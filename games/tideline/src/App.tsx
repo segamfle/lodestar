@@ -167,7 +167,9 @@ export function App() {
     const from = waterlineFor(0);
     const to = waterlineFor(round.level);
 
-    audio.startSwell();
+    // The wash is scaled by the tide, so how far the water climbs is audible and not just
+    // visible. It used to play at one level whatever happened.
+    audio.startSwell(round.level);
     const timers: ReturnType<typeof setTimeout>[] = [];
     const crossings = rungCrossings(from, to);
 
@@ -182,7 +184,12 @@ export function App() {
     // 1.59s, so the loudest sound in the game landed half a second before the thing it was
     // celebrating.
     const crownAt = crossings.find((c) => c.rung === RUNGS)?.at;
-    if (crownAt !== undefined) audio.crown(crownAt);
+    if (crownAt !== undefined) {
+      audio.crown(crownAt);
+      // Pull the wash down under it. The bells were fighting a constant bed of noise, which
+      // is why a jackpot measured barely louder than a bust.
+      audio.duckSwell(crownAt - 0.1);
+    }
     if (round.level === 0) audio.ebb();
 
     timers.push(setTimeout(() => audio.stopSwell(), RISE_MS));

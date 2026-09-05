@@ -55,8 +55,17 @@ class ConstellationAudio {
     // scheduled arrives at once on the next click.
     if (ctx.state === 'suspended') void ctx.resume();
     const master = ctx.createGain();
-    master.gain.value = this.muted ? 0 : 0.85;
-    master.connect(ctx.destination);
+    master.gain.value = this.muted ? 0 : 1.9;
+
+    // Peaks sat around -7 dBFS with the body of the mix near -29 and nothing catching the
+    // transients. The compressor buys the headroom to bring the whole thing up.
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -12;
+    limiter.knee.value = 6;
+    limiter.ratio.value = 4;
+    limiter.attack.value = 0.004;
+    limiter.release.value = 0.18;
+    master.connect(limiter).connect(ctx.destination);
 
     const buffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
     const channel = buffer.getChannelData(0);
@@ -78,7 +87,7 @@ class ConstellationAudio {
     }
     if (this.master && this.ctx) {
       this.master.gain.cancelScheduledValues(this.ctx.currentTime);
-      this.master.gain.setTargetAtTime(muted ? 0 : 0.85, this.ctx.currentTime, 0.05);
+      this.master.gain.setTargetAtTime(muted ? 0 : 1.9, this.ctx.currentTime, 0.05);
     }
   }
 
@@ -139,6 +148,22 @@ class ConstellationAudio {
     const bus = space.place(pan);
     bus.gain.value = onShape ? 0.32 : 0.1;
 
+    if (v.noise) {
+      const hit = ctx.createBufferSource();
+      hit.buffer = v.noise;
+      const air = ctx.createBiquadFilter();
+      air.type = 'bandpass';
+      air.frequency.value = 4500;
+      air.Q.value = 1;
+      const edge = ctx.createGain();
+      edge.gain.setValueAtTime(0.0001, at);
+      edge.gain.exponentialRampToValueAtTime(onShape ? 0.12 : 0.035, at + 0.002);
+      edge.gain.exponentialRampToValueAtTime(0.0001, at + 0.026);
+      hit.connect(air).connect(edge).connect(bus);
+      hit.start(at);
+      hit.stop(at + 0.04);
+    }
+
     for (const partial of PARTIALS) {
       const osc = ctx.createOscillator();
       osc.type = 'sine';
@@ -158,6 +183,38 @@ class ConstellationAudio {
     }
   }
 
+  /**
+   * A star that landed on nothing.
+   *
+   * Previously this was the same struck tone at a lower gain, pitched by its position in the
+   * reveal, so every round played the identical seven-note phrase whatever happened. An
+   * unpitched tick carries no melody, which leaves the pitched notes free to say the only
+   * thing worth saying: how many landed.
+   */
+  miss(pan = 0) {
+    const v = this.voice();
+    if (!v) return;
+    const { ctx, space, noise } = v;
+    const now = ctx.currentTime + 0.008;
+
+    const source = ctx.createBufferSource();
+    source.buffer = noise;
+
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.value = 900;
+    band.Q.value = 1.8;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.1, now + 0.003);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.045);
+
+    source.connect(band).connect(gain).connect(space.place(pan));
+    source.start(now);
+    source.stop(now + 0.06);
+  }
+
   /** The whole shape came alight. The one loud moment. */
   complete() {
     const v = this.voice();
@@ -167,7 +224,10 @@ class ConstellationAudio {
     // An arpeggio up the scale, spread across the field. Scheduled on the audio clock rather
     // than with timers: the context is running by the time a round can be won, and four
     // stray timeouts nobody owned used to spill the last note into the next round.
-    for (let i = 0; i < 4; i++) this.strike(3 + i, true, (i - 1.5) * 0.4, i * 0.1);
+    // Steps 2 to 5 land on the octave. The previous run ended on the second of the scale,
+    // which is a suspension - the ear hears it as unfinished, which is the wrong feeling for
+    // the only moment in the game worth celebrating.
+    for (let i = 0; i < 4; i++) this.strike(2 + i, true, (i - 1.5) * 0.4, i * 0.1);
 
     // A low swell underneath, so it lands in the chest and not only in the ear.
     const now = ctx.currentTime;
@@ -202,12 +262,24 @@ class ConstellationAudio {
 
     const gain = ctx.createGain();
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(0.09, now + 0.25);
+    gain.gain.exponentialRampToValueAtTime(0.17, now + 0.25);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 1.8);
 
     source.connect(filter).connect(gain).connect(space.input);
     source.start(now);
     source.stop(now + 2);
+
+    // Something underneath it, so a loss drops rather than fades.
+    const floor = ctx.createOscillator();
+    floor.type = 'sine';
+    floor.frequency.value = 55;
+    const weight = ctx.createGain();
+    weight.gain.setValueAtTime(0.0001, now);
+    weight.gain.exponentialRampToValueAtTime(0.11, now + 0.15);
+    weight.gain.exponentialRampToValueAtTime(0.0001, now + 1.4);
+    floor.connect(weight).connect(space.input);
+    floor.start(now);
+    floor.stop(now + 1.6);
   }
 }
 
