@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "gameId": "ConstellationGame",
+  "apiVersion": 1,
+  "defaultLocale": "en",
+  "locales": {
+    "en": {
+      "name": "Constellation",
+      "description": "Twenty-five cells of dark sky. Mark a shape of three to six cells, then seven stars light at random - you are paid on how much of your shape came alight."
+    }
+  },
+  "presentation": {
+    "mode": "full-iframe",
+    "hostPanels": {
+      "openSession": false,
+      "history": false,
+      "status": false
+    }
+  },
+  "capabilities": {
+    "openSession": true,
+    "submitAction": false,
+    "forfeitExpiredSession": false,
+    "cancelStuckRandomness": true,
+    "resize": true
+  }
+}

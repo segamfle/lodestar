@@ -54,12 +54,26 @@ jobs:
         working-directory: games/tideline
         run: npm test
 
+      - name: Build Constellation
+        working-directory: games/constellation
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      # The browser reads its own copy of the paytable, so this checks that copy returns
+      # exactly 96% for every shape size. A drift between it and the contract would show the
+      # player one set of odds and pay them another, with nothing anywhere throwing.
+      - name: Check the Constellation paytable
+        working-directory: games/constellation
+        run: npm test
+
       # Each game gets its own directory so it has its own standalone URL, which is what the
       # jam treats as the entry. The landing page is only a signpost between them.
       - name: Assemble the site
         run: |
-          mkdir -p site/tideline
+          mkdir -p site/tideline site/constellation
           cp -r games/tideline/dist/* site/tideline/
+          cp -r games/constellation/dist/* site/constellation/
           cp site-index.html site/index.html
 
       - uses: actions/upload-pages-artifact@v3

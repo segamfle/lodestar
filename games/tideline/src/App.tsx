@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { computeMaxWager } from '@chain/casino-sdk/guest';
-import { decodeAbiParameters, encodeAbiParameters, formatUnits, parseUnits } from 'viem';
+import { decodeAbiParameters, encodeAbiParameters, parseUnits } from 'viem';
 import { Ladder, type LadderPhase } from './components/Ladder';
 import { useCasinoHost } from './lib/useCasinoHost';
 import { LEVELS, PAYTABLE, RUNGS, spreadEvenly, summarise, totalStaked } from './lib/tideline';
 import { rungCrossings, waterlineFor } from './lib/tide';
 import { audio } from './lib/audio';
+import { formatAmount } from './lib/money';
 
 const EMPTY_HEX = '0x' as const;
 const STAKES_ABI = [{ type: 'uint256[6]' }] as const;
@@ -23,11 +24,37 @@ interface Round {
   wager: bigint;
   status: RoundStatus;
   level: number | null;
+  knownBefore: string[];
   payout: bigint | null;
 }
 
 const isTerminal = (phase: unknown) =>
   phase === 3 || phase === 4 || phase === 5; // SETTLED / FORFEITED / CANCELLED
+
+/**
+ * Find our round in the host's session list.
+ *
+ * The host publishes an optimistic row the moment a session opens, keyed by a pending id,
+ * then replaces it with the indexed row once the chain catches up. Under indexer lag - which
+ * the simulator can dial up on purpose, and which production has for real - the optimistic
+ * row can vanish before the indexed one arrives, and a game that only ever matches the key it
+ * was handed will sit on "waiting" forever while its round quietly settles behind it.
+ *
+ * So the key is tried first, and if it is gone we look for a session that did not exist when
+ * the bet was placed. There can only be one, because a round is in flight at a time.
+ */
+function findOurSession<T extends { sessionKey: string; sessionId?: string }>(
+  items: readonly T[],
+  sessionKey: string,
+  knownBefore: readonly string[],
+): T | undefined {
+  const byKey = items.find((item) => item.sessionKey === sessionKey);
+  if (byKey) return byKey;
+  return items.find(
+    (item) => item.sessionId !== undefined && !knownBefore.includes(item.sessionId),
+  );
+}
+
 
 /**
  * Draw a tide level locally for the standalone demo, using the same rejection sampling the
@@ -105,7 +132,7 @@ export function App() {
   // chain actually drew and start the climb.
   useEffect(() => {
     if (!round || round.status !== 'waiting' || !snapshot) return;
-    const row = snapshot.sessions.items.find((item) => item.sessionKey === round.sessionKey);
+    const row = findOurSession(snapshot.sessions.items, round.sessionKey, round.knownBefore);
     if (!row || !(row.isSettled || isTerminal(row.phase))) return;
 
     if (!row.raw.gameState) return; // terminal but not yet synced — wait for the next push
@@ -175,6 +202,12 @@ export function App() {
     audio.unlock();
     setError(null);
 
+    // Sessions the host already knows about, so a new one can be told apart from them if the
+    // optimistic row is dropped before the indexed one lands.
+    const knownBefore = (snapshot?.sessions.items ?? [])
+      .map((item) => item.sessionId)
+      .filter((id): id is string => id !== undefined);
+
     const staked = totalStaked(stakes);
     if (staked !== wager) {
       setError('Allocation does not add up to the wager.');
@@ -185,6 +218,7 @@ export function App() {
       const level = demoLevel();
       setRound({
         sessionKey: 'demo',
+        knownBefore,
         stakes,
         wager,
         status: 'rising',
@@ -195,7 +229,15 @@ export function App() {
     }
 
     const pendingKey = `pending:${performance.now()}`;
-    setRound({ sessionKey: pendingKey, stakes, wager, status: 'opening', level: null, payout: null });
+    setRound({
+      sessionKey: pendingKey,
+      knownBefore,
+      stakes,
+      wager,
+      status: 'opening',
+      level: null,
+      payout: null,
+    });
 
     try {
       const { sessionKey } = await hostApi.openSession({
@@ -212,12 +254,12 @@ export function App() {
       setRound(null);
       setError(cause instanceof Error ? cause.message : 'Could not open the round.');
     }
-  }, [canBet, hostApi, standalone, stakes, wager]);
+  }, [canBet, hostApi, standalone, stakes, wager, snapshot]);
 
   const phase: LadderPhase =
     round?.status === 'rising' ? 'rising' : round?.status === 'done' ? 'settled' : 'idle';
 
-  const money = (value: bigint) => `${formatUnits(value, decimals)} ${symbol}`;
+  const money = (value: bigint) => `${formatAmount(value, decimals)} ${symbol}`;
 
   return (
     <main className="tideline">
@@ -275,7 +317,7 @@ export function App() {
 
         {maxWager !== null && (
           <p className="hint">
-            Table limit {formatUnits(maxWager, decimals)} {symbol}
+            Table limit {formatAmount(maxWager, decimals)} {symbol}
           </p>
         )}
 

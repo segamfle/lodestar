@@ -1,0 +1,26 @@
+{
+  "name": "constellation",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 5181",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 5181",
+    "test": "node src/lib/constellation.test.mts"
+  },
+  "dependencies": {
+    "@chain/casino-sdk": "file:../../vendor/casino-sdk/casino-sdk",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "viem": "^2.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}
