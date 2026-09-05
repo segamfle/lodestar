@@ -16,8 +16,10 @@
      numeric - a casino table is read in columns, and proportional digits jitter as they
      change. Two faces, used for different jobs, instead of one system stack doing both
      badly. */
-  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
-  --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* One family throughout, with tabular figures so the paytable does not shuffle as the
+     numbers change. Serif display over a mono body was too loud and fought the art. */
+  --display: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   color-scheme: dark;
 }
@@ -36,8 +38,9 @@ body,
 body {
   background: var(--void);
   color: var(--text);
-  font: 300 12.5px/1.6 var(--mono);
-  letter-spacing: -0.01em;
+  font: 400 14px/1.55 var(--display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -113,7 +116,13 @@ body {
 }
 
 .cell:disabled {
-  cursor: default;
+  cursor: not-allowed;
+}
+
+/* A full shape dims the cells it will not accept, so the limit is visible before it is hit
+   rather than discovered by clicking into silence. */
+.cell:disabled:not(.is-marked) {
+  opacity: 0.32;
 }
 
 .result {
@@ -135,9 +144,9 @@ body {
 
 .result strong {
   font-family: var(--display);
-  font-size: 30px;
-  line-height: 1.05;
-  letter-spacing: 0;
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.1;
 }
 
 .result.is-win strong {
@@ -186,7 +195,8 @@ body {
   background: none;
   color: var(--text);
   font-family: var(--display);
-  font-size: 26px;
+  font-weight: 500;
+  font-size: 22px;
   line-height: 1;
   text-align: right;
 }
@@ -259,7 +269,9 @@ body {
   background: linear-gradient(180deg, #ffe9b8 0%, #f0c473 45%, #d9a544 100%);
   color: #20170a;
   font-family: var(--display);
-  font-size: 19px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.01em;
   letter-spacing: 0.01em;
   cursor: pointer;
   box-shadow:

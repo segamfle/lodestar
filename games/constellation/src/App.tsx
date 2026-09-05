@@ -133,6 +133,7 @@ export function App() {
     }
   }, [snapshot, size, legalShape]);
 
+  const full = size >= MAX_SHAPE;
   const walletReady = standalone || snapshot?.wallet.status === 'ready';
   const busy = round !== null && round.status !== 'done';
   const canBet = walletReady && wager > 0n && legalShape && !busy;
@@ -336,7 +337,7 @@ export function App() {
                 onClick={() => toggle(cell)}
                 onPointerEnter={() => setHovered(cell)}
                 onPointerLeave={() => setHovered(null)}
-                disabled={busy}
+                disabled={busy || (full && !marked)}
                 aria-pressed={marked}
                 aria-label={`Row ${row}, column ${column}${marked ? ', marked' : ''}${arrived ? ', star' : ''}`}
               />
@@ -377,10 +378,14 @@ export function App() {
           <span className={legalShape ? 'ok' : 'warn'}>
             {size} of {ROWS * COLUMNS} marked
           </span>
-          <span className="dim">
-            {legalShape
-              ? `pays ${(chanceOfAnyReturn(size) * 100).toFixed(0)}% of draws`
-              : `mark ${MIN_SHAPE} to ${MAX_SHAPE}`}
+          <span className={full ? 'warn' : 'dim'}>
+            {/* A click that does nothing and says nothing reads as a broken game. When the
+                shape is full the empty cells are disabled and this says why. */}
+            {full
+              ? `${MAX_SHAPE} is the most — clear one to move it`
+              : legalShape
+                ? `pays ${(chanceOfAnyReturn(size) * 100).toFixed(0)}% of draws`
+                : `mark ${MIN_SHAPE} to ${MAX_SHAPE}`}
           </span>
         </div>
 

@@ -16,8 +16,10 @@
 
   /* A display serif for the words that carry weight, a mono for everything numeric. A
      paytable is read in columns and proportional digits jitter as they change. */
-  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
-  --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  /* One family throughout, with tabular figures so the paytable does not shuffle as the
+     numbers change. Serif display over a mono body was too loud and fought the art. */
+  --display: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --mono: "Space Grotesk", ui-sans-serif, system-ui, -apple-system, sans-serif;
 
   color-scheme: dark;
 }
@@ -36,8 +38,9 @@ body,
 body {
   background: var(--ink);
   color: var(--text);
-  font: 300 12.5px/1.6 var(--mono);
-  letter-spacing: -0.01em;
+  font: 400 14px/1.55 var(--display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.005em;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -168,8 +171,9 @@ body {
 
 .result strong {
   font-family: var(--display);
-  font-size: 30px;
-  line-height: 1.05;
+  font-weight: 600;
+  font-size: 24px;
+  line-height: 1.1;
 }
 
 .result.is-win strong {
@@ -218,7 +222,8 @@ body {
   background: none;
   color: var(--text);
   font-family: var(--display);
-  font-size: 26px;
+  font-weight: 500;
+  font-size: 22px;
   line-height: 1;
   text-align: right;
 }
@@ -263,7 +268,9 @@ body {
   background: linear-gradient(180deg, #ffe3a6 0%, #e9bb62 45%, #cf9a3c 100%);
   color: #20170a;
   font-family: var(--display);
-  font-size: 19px;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.01em;
   cursor: pointer;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.55),
