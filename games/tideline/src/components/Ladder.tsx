@@ -98,6 +98,26 @@ function paintBackdrop(w: number, h: number, ratio: number): HTMLCanvasElement {
     }
   }
 
+  // The rails. Timber with a lit edge and a shadow cast onto the stone behind, so the ladder
+  // sits against the wall rather than being printed on it.
+  const railInset = w * 0.28;
+  const railWidth = Math.max(4, w * 0.018);
+  for (const x of [railInset, w - railInset - railWidth]) {
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(x + railWidth * 0.7, h * 0.04, railWidth, h * 0.94);
+
+    const timber = ctx.createLinearGradient(x, 0, x + railWidth, 0);
+    timber.addColorStop(0, '#5c4a32');
+    timber.addColorStop(0.3, '#9a7f56');
+    timber.addColorStop(0.62, '#7a6342');
+    timber.addColorStop(1, '#463726');
+    ctx.fillStyle = timber;
+    ctx.fillRect(x, h * 0.04, railWidth, h * 0.94);
+
+    ctx.fillStyle = 'rgba(255,236,196,0.16)';
+    ctx.fillRect(x, h * 0.04, railWidth * 0.28, h * 0.94);
+  }
+
   // Light from somewhere above and left, so the wall has a direction.
   const key = ctx.createLinearGradient(0, 0, w * 0.9, h);
   key.addColorStop(0, 'rgba(150,180,220,0.09)');
@@ -280,8 +300,8 @@ export function Ladder({ stakes, level, phase, hovered }: LadderProps) {
       const w = width;
       const h = height;
       const waterY = waterline * h;
-      const railInset = w * 0.32;
-      const railWidth = Math.max(3, w * 0.012);
+      const railInset = w * 0.28;
+      const railWidth = Math.max(4, w * 0.018);
 
       ctx.clearRect(0, 0, w, h);
       ctx.drawImage(backdrop, 0, 0, w, h);

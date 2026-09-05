@@ -13,7 +13,7 @@ export const RUNG_TOP = 0.12;
 export const RUNG_BOTTOM = 0.82;
 
 /** Waterline when the ladder is dry — below the lowest rung, still visible. */
-export const WATER_REST = 0.94;
+export const WATER_REST = 0.9;
 
 /**
  * Time constant of the climb, in seconds. The water covers most of the distance in about a
