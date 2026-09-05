@@ -1,0 +1,70 @@
+name: Deploy games to Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A queued deploy should wait for the running one rather than cancel it — a half-published
+# site is worse than a slightly stale one, and the jam entry is a live URL.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      # The Chain casino SDK is not published to npm and is not vendored into this repo —
+      # it is someone else's code and redistributing it is not ours to do. CI fetches the
+      # official package the same way a developer would, into the path the games' package
+      # manifests already point at.
+      - name: Fetch the Chain casino SDK
+        run: |
+          mkdir -p vendor
+          curl -fsSL --retry 3 https://sdk.chain.wtf/sdk/casino-sdk.zip -o vendor/casino-sdk.zip
+          unzip -q vendor/casino-sdk.zip -d vendor/casino-sdk
+          test -f vendor/casino-sdk/casino-sdk/package.json
+
+      - name: Build Tideline
+        working-directory: games/tideline
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Check the bell timing
+        working-directory: games/tideline
+        run: npm test
+
+      # Each game gets its own directory so it has its own standalone URL, which is what the
+      # jam treats as the entry. The landing page is only a signpost between them.
+      - name: Assemble the site
+        run: |
+          mkdir -p site/tideline
+          cp -r games/tideline/dist/* site/tideline/
+          cp site-index.html site/index.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lodestar</title>
+    <meta name="description" content="On-chain wagering games built against the Chain casino SDK." />
+    <style>
+      :root {
+        color-scheme: dark;
+        --ink: #0a1017;
+        --stone: #141b26;
+        --brass: #ffc666;
+        --water: #60bed6;
+        --text: #e8eef5;
+        --dim: #8fa3b8;
+        --edge: rgba(255, 255, 255, 0.09);
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 32px;
+        background: radial-gradient(120% 80% at 50% 0%, #101a2b 0%, var(--ink) 60%);
+        color: var(--text);
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      }
+      main { width: 100%; max-width: 620px; }
+      h1 {
+        margin: 0 0 6px;
+        font-size: 30px;
+        letter-spacing: -0.02em;
+      }
+      .tagline { margin: 0 0 28px; color: var(--dim); }
+      ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+      a.game {
+        display: block;
+        padding: 18px 20px;
+        border: 1px solid var(--edge);
+        border-radius: 14px;
+        background: var(--stone);
+        color: inherit;
+        text-decoration: none;
+        transition: border-color 160ms, transform 90ms;
+      }
+      a.game:hover {
+        border-color: rgba(255, 198, 102, 0.45);
+        transform: translateY(-1px);
+      }
+      a.game h2 { margin: 0 0 4px; font-size: 18px; color: var(--brass); }
+      a.game p { margin: 0; color: var(--dim); font-size: 14px; }
+      .soon {
+        padding: 18px 20px;
+        border: 1px dashed var(--edge);
+        border-radius: 14px;
+        color: var(--dim);
+        font-size: 14px;
+      }
+      footer {
+        margin-top: 28px;
+        padding-top: 16px;
+        border-top: 1px solid var(--edge);
+        color: var(--dim);
+        font-size: 13px;
+      }
+      footer a { color: var(--water); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Lodestar</h1>
+      <p class="tagline">On-chain wagering games, built against the Chain casino SDK.</p>
+
+      <ul>
+        <li>
+          <a class="game" href="./tideline/">
+            <h2>Tideline</h2>
+            <p>
+              Six rungs stand above the waterline. Spread your wager across the ladder, then
+              watch the tide come in — every rung the water reaches pays out. 96% return,
+              identical on every rung and every spread.
+            </p>
+          </a>
+        </li>
+        <li>
+          <div class="soon">Constellation — in progress.</div>
+        </li>
+      </ul>
+
+      <footer>
+        Source at <a href="https://github.com/segamfle/lodestar">github.com/segamfle/lodestar</a>.
+        Built for <a href="https://jam.chain.wtf">Chain Jam Vol. 1</a>.
+      </footer>
+    </main>
+  </body>
+</html>
