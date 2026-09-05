@@ -67,13 +67,27 @@ jobs:
         working-directory: games/constellation
         run: npm test
 
+      # Tray is a Cookie Chain app, not a jam game, and needs none of the casino SDK.
+      - name: Build Tray
+        working-directory: cookiechain/tray
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      # The encoding is the only record of the picture: a stroke that cannot be read back is
+      # a cell lost from the tray for good.
+      - name: Check the Tray codec
+        working-directory: cookiechain/tray
+        run: npm test
+
       # Each game gets its own directory so it has its own standalone URL, which is what the
       # jam treats as the entry. The landing page is only a signpost between them.
       - name: Assemble the site
         run: |
-          mkdir -p site/tideline site/constellation
+          mkdir -p site/tideline site/constellation site/tray
           cp -r games/tideline/dist/* site/tideline/
           cp -r games/constellation/dist/* site/constellation/
+          cp -r cookiechain/tray/dist/* site/tray/
           cp site-index.html site/index.html
 
       - uses: actions/upload-pages-artifact@v3

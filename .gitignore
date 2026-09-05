@@ -9,3 +9,4 @@ superteam_cache/
 package-lock.json
 config/payout-addresses.json
 games/*/dist/
+cookiechain/*/dist/
