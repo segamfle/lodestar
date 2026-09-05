@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "gameId": "TidelineGame",
+  "apiVersion": 1,
+  "defaultLocale": "en",
+  "locales": {
+    "en": {
+      "name": "Tideline",
+      "description": "Six rungs stand above the waterline. Spread your wager across the ladder, then watch the tide come in - every rung the water reaches pays out."
+    }
+  },
+  "presentation": {
+    "mode": "full-iframe",
+    "hostPanels": {
+      "openSession": false,
+      "history": false,
+      "status": false
+    }
+  },
+  "capabilities": {
+    "openSession": true,
+    "submitAction": false,
+    "forfeitExpiredSession": false,
+    "cancelStuckRandomness": true,
+    "resize": true
+  }
+}
