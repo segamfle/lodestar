@@ -4,7 +4,7 @@ import { decodeAbiParameters, encodeAbiParameters, parseUnits } from 'viem';
 import { Ladder, type LadderPhase } from './components/Ladder';
 import { useCasinoHost } from './lib/useCasinoHost';
 import { LEVELS, PAYTABLE, RUNGS, spreadEvenly, summarise, totalStaked } from './lib/tideline';
-import { rungCrossings, waterlineFor } from './lib/tide';
+import { rungCrossings, rungY, waterlineFor } from './lib/tide';
 import { audio } from './lib/audio';
 import { formatAmount } from './lib/money';
 
@@ -280,6 +280,9 @@ export function App() {
                 key={rung}
                 type="button"
                 className={`rung-hit${active ? ' is-staked' : ''}${covered ? ' is-covered' : ''}`}
+                // Positioned from rungY, the same function the canvas draws the rung with.
+                // Letting CSS approximate it is how the labels drifted off the timber.
+                style={{ top: `${rungY(rung) * 100}%` }}
                 onClick={() => toggleRung(rung)}
                 onPointerEnter={() => setHovered(rung)}
                 onPointerLeave={() => setHovered(null)}

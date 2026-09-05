@@ -47,6 +47,9 @@ interface Round {
 
 const isTerminal = (phase: unknown) => phase === 3 || phase === 4 || phase === 5;
 
+/** Where a cell sits across the stereo field, so the sky is heard as wide as it looks. */
+const panFor = (cell: number) => ((cell % COLUMNS) / (COLUMNS - 1)) * 1.4 - 0.7;
+
 /**
  * Find our round in the host's session list.
  *
@@ -148,15 +151,19 @@ export function App() {
     (cell: number) => {
       if (busy) return;
       audio.unlock();
-      const next = toggleCell(shape, cell);
-      const nextSize = countCells(next);
-      // Let the player drop below the minimum while rearranging, but never build past the
-      // maximum - silently ignoring the click is clearer than an error they have to dismiss.
-      if (nextSize > MAX_SHAPE) return;
-      audio.mark(!isLit(shape, cell));
-      setShape(next);
+      // Built from the latest state rather than a captured copy: two quick clicks used to
+      // both compute from the same stale shape, so the second silently discarded the first
+      // and a mark the player had just placed vanished.
+      setShape((current) => {
+        const next = toggleCell(current, cell);
+        // Let them drop below the minimum while rearranging, but never build past the
+        // maximum - ignoring the click is clearer than an error they have to dismiss.
+        if (countCells(next) > MAX_SHAPE) return current;
+        audio.mark(!isLit(current, cell), panFor(cell));
+        return next;
+      });
     },
-    [busy, shape],
+    [busy],
   );
 
   // Settle from host snapshots: once our row goes terminal, read the sky the chain drew.
@@ -203,13 +210,22 @@ export function App() {
     round.order.forEach((cell, index) => {
       const onShape = isLit(round.shape, cell);
       if (onShape) landed++;
-      audio.star(index, (index * STAR_GAP_MS) / 1000, onShape);
-      timers.push(setTimeout(() => setRevealed(index + 1), index * STAR_GAP_MS));
+      // Each star's sound fires from the same timer that reveals it, rather than being
+      // queued ahead against the audio clock. A context that has only just been unlocked has
+      // not started advancing yet, so pre-scheduled tones all landed on the same instant
+      // while the stars kept their spacing - the sound and the sky came apart.
+      timers.push(
+        setTimeout(() => {
+          setRevealed(index + 1);
+          audio.star(index, onShape, panFor(cell));
+        }, index * STAR_GAP_MS),
+      );
     });
 
     const total = round.order.length * STAR_GAP_MS;
-    if (landed === round.size) audio.complete(total / 1000 + 0.15);
-    else if (multiplierWad(round.size, landed) === 0n) audio.dark(total / 1000 + 0.1);
+    if (landed === round.size) timers.push(setTimeout(() => audio.complete(), total + 150));
+    else if (multiplierWad(round.size, landed) === 0n)
+      timers.push(setTimeout(() => audio.dark(), total + 100));
 
     timers.push(
       setTimeout(() => {
@@ -328,6 +344,9 @@ export function App() {
           })}
         </div>
 
+      </section>
+
+      <section className="controls">
         {round?.status === 'done' && (
           <div className={`result${round.payout && round.payout > 0n ? ' is-win' : ''}`} role="status">
             <span className="result-hits">
@@ -336,9 +355,7 @@ export function App() {
             <strong>{round.payout && round.payout > 0n ? money(round.payout) : 'Dark'}</strong>
           </div>
         )}
-      </section>
 
-      <section className="controls">
         <label className="field">
           <span>Wager</span>
           <input

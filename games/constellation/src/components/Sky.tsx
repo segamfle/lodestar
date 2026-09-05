@@ -25,6 +25,30 @@ function drift(cell: number, axis: number): number {
   return (n - Math.floor(n)) * 2 - 1;
 }
 
+/**
+ * A tile of monochrome grain.
+ *
+ * Perfectly smooth gradients are the loudest tell that a picture was computed rather than
+ * captured - the eye reads banding and cleanliness as synthetic long before it can say why.
+ * A faint layer of noise over everything is most of the difference between a gradient and a
+ * photograph of the night.
+ */
+function makeGrain(size = 128): HTMLCanvasElement {
+  const tile = document.createElement('canvas');
+  tile.width = size;
+  tile.height = size;
+  const ctx = tile.getContext('2d');
+  if (!ctx) return tile;
+  const image = ctx.createImageData(size, size);
+  for (let i = 0; i < image.data.length; i += 4) {
+    const v = 128 + (Math.random() - 0.5) * 255;
+    image.data[i] = image.data[i + 1] = image.data[i + 2] = v;
+    image.data[i + 3] = 255;
+  }
+  ctx.putImageData(image, 0, 0);
+  return tile;
+}
+
 export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -59,6 +83,8 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
     let raf = 0;
     let width = 0;
     let height = 0;
+    const grain = makeGrain();
+    const grainPattern = ctx.createPattern(grain, 'repeat');
 
     const resize = () => {
       const ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -113,10 +139,15 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
           const age = arrivedAt === undefined ? -1 : (now - arrivedAt) / 1000;
           const bloom = age < 0 ? 0 : reduceMotion ? 1 : Math.min(age / BLOOM, 1);
 
-          // The faint point every cell keeps, so an empty board still reads as sky.
+          // The point every cell keeps, so an empty board still reads as sky. Brightness
+          // varies per cell and drifts slowly: a lattice of identical dots looks printed,
+          // and a sky that holds perfectly still looks dead.
+          const base = 0.3 + drift(cell, 2) * 0.18;
+          const twinkle = reduceMotion ? 0 : Math.sin(t * 0.7 + cell * 1.7) * 0.12;
+          const faint = Math.max(0.12, base + twinkle);
           ctx.beginPath();
-          ctx.arc(x, y, radius * 0.06, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(150,170,210,0.30)';
+          ctx.arc(x, y, radius * (0.055 + faint * 0.03), 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(176,196,232,${faint.toFixed(3)})`;
           ctx.fill();
 
           // The ring the player drew.
@@ -192,6 +223,31 @@ export function Sky({ shape, sky, revealed, order, phase, hovered }: SkyProps) {
         ctx.moveTo(marked[0].x, marked[0].y);
         for (const point of marked.slice(1)) ctx.lineTo(point.x, point.y);
         ctx.stroke();
+      }
+
+      // ---- atmosphere ----------------------------------------------------------------
+      // Light falls off toward the frame, the way it does through any lens, which pushes the
+      // eye to the middle where the board is.
+      const vignette = ctx.createRadialGradient(
+        w / 2, h * 0.46, Math.min(w, h) * 0.28,
+        w / 2, h * 0.46, Math.max(w, h) * 0.78,
+      );
+      vignette.addColorStop(0, 'rgba(0,0,0,0)');
+      vignette.addColorStop(1, 'rgba(0,0,0,0.72)');
+      ctx.fillStyle = vignette;
+      ctx.fillRect(0, 0, w, h);
+
+      if (grainPattern) {
+        ctx.save();
+        ctx.globalAlpha = 0.035;
+        ctx.globalCompositeOperation = 'overlay';
+        // Shifting the tile each frame keeps it from reading as a fixed texture stuck to
+        // the glass.
+        const drift16 = reduceMotion ? 0 : Math.floor(t * 12) % 16;
+        ctx.translate(drift16, (drift16 * 7) % 16);
+        ctx.fillStyle = grainPattern;
+        ctx.fillRect(-16, -16, w + 32, h + 32);
+        ctx.restore();
       }
     };
 

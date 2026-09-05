@@ -10,7 +10,14 @@
   --star-hot: #fff8dc;
   --text: #e9edf6;
   --text-dim: #8b98b4;
-  --edge: rgba(255, 255, 255, 0.08);
+  --edge: rgba(255, 255, 255, 0.07);
+
+  /* A display serif for the few words that carry weight, and a mono for everything
+     numeric - a casino table is read in columns, and proportional digits jitter as they
+     change. Two faces, used for different jobs, instead of one system stack doing both
+     badly. */
+  --display: "Instrument Serif", "Iowan Old Style", Georgia, serif;
+  --mono: "DM Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   color-scheme: dark;
 }
@@ -29,7 +36,8 @@ body,
 body {
   background: var(--void);
   color: var(--text);
-  font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font: 300 13px/1.55 var(--mono);
+  letter-spacing: 0.01em;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -53,11 +61,12 @@ body {
 
 .board {
   position: relative;
-  border-radius: 14px;
+  border-radius: 3px;
   overflow: hidden;
   background: var(--void);
   border: 1px solid var(--edge);
   min-height: 300px;
+  box-shadow: inset 0 0 120px 20px rgba(0, 0, 0, 0.55);
 }
 
 .sky-canvas {
@@ -108,31 +117,27 @@ body {
 }
 
 .result {
-  position: absolute;
-  left: 50%;
-  bottom: 16px;
-  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 10px 24px;
-  border-radius: 12px;
-  background: rgba(6, 8, 15, 0.86);
-  border: 1px solid var(--edge);
-  backdrop-filter: blur(6px);
-  text-align: center;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+  border-left: 2px solid var(--star);
 }
 
 .result-hits {
-  font-size: 12px;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
 
 .result strong {
-  font-size: 19px;
+  font-family: var(--display);
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: 0;
 }
 
 .result.is-win strong {
@@ -144,26 +149,32 @@ body {
 .controls {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 16px;
-  border-radius: 14px;
-  background: var(--panel);
+  gap: 13px;
+  padding: 18px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #101728 0%, #0b1120 100%);
   border: 1px solid var(--edge);
+  /* A hairline of light along the top edge and depth beneath: the panel reads as a physical
+     surface catching the sky rather than a div with a border. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 24px 48px -24px rgba(0, 0, 0, 0.9);
 }
 
 .field {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.32);
+  padding: 11px 13px;
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.4);
   border: 1px solid var(--edge);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .field > span:first-child {
-  font-size: 12px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--text-dim);
 }
@@ -174,9 +185,9 @@ body {
   border: 0;
   background: none;
   color: var(--text);
-  font: inherit;
-  font-size: 17px;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--display);
+  font-size: 26px;
+  line-height: 1;
   text-align: right;
 }
 
@@ -216,12 +227,12 @@ body {
 
 .paytable th,
 .paytable td {
-  padding: 5px 0;
+  padding: 6px 0;
   text-align: left;
-  font-weight: 400;
-  font-size: 13px;
+  font-weight: 300;
+  font-size: 12px;
   color: var(--text-dim);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.045);
 }
 
 .paytable td:nth-child(2) {
@@ -242,20 +253,26 @@ body {
 }
 
 .bet {
-  padding: 13px;
+  padding: 14px;
   border: 0;
-  border-radius: 11px;
-  background: linear-gradient(180deg, #ffe7b0, #e8b75c);
-  color: #241a08;
-  font: inherit;
-  font-size: 15px;
-  font-weight: 700;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #ffe9b8 0%, #f0c473 45%, #d9a544 100%);
+  color: #20170a;
+  font-family: var(--display);
+  font-size: 21px;
+  letter-spacing: 0.01em;
   cursor: pointer;
-  transition: filter 140ms, transform 90ms;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 10px 26px -12px rgba(240, 196, 115, 0.75);
+  transition: filter 140ms, transform 90ms, box-shadow 140ms;
 }
 
 .bet:hover:not(:disabled) {
-  filter: brightness(1.07);
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 14px 34px -12px rgba(240, 196, 115, 0.95);
 }
 
 .bet:active:not(:disabled) {
@@ -263,8 +280,9 @@ body {
 }
 
 .bet:disabled {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-dim);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
   cursor: default;
 }
 
@@ -304,6 +322,9 @@ body {
   gap: 10px;
   margin-top: auto;
   padding-top: 10px;
+  /* The jam widget pins its badge to the bottom-right of the viewport. Leave it room rather
+     than letting it sit on top of the mute button. */
+  padding-bottom: 38px;
   border-top: 1px solid var(--edge);
 }
 

@@ -68,24 +68,25 @@ body {
   height: 100%;
 }
 
-/* The rungs are drawn on canvas; these are the hit targets laid over them, positioned to
-   match `rungY` in Ladder.tsx. Keeping them as real buttons means the ladder is operable by
-   keyboard and readable by a screen reader without the canvas having to fake either. */
+/* The rungs are drawn on canvas; these are the hit targets over them. Each one is placed
+   from `rungY` in JS rather than approximated here, because a flex layout that only looked
+   right at one aspect ratio drifted the labels visibly off the timber at others.
+   Keeping them real buttons means the ladder works by keyboard and reads to a screen reader
+   without the canvas having to fake either. */
 .rung-hits {
   position: absolute;
-  inset: 12% 0 18%;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 0 6%;
+  inset: 0;
 }
 
 .rung-hit {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   gap: 10px;
   height: 40px;
-  margin-top: -20px;
   padding: 0 12px;
   border: 1px solid transparent;
   border-radius: 10px;
@@ -317,6 +318,9 @@ body {
   gap: 10px;
   margin-top: auto;
   padding-top: 10px;
+  /* The jam widget pins its badge to the bottom-right of the viewport. Leave it room rather
+     than letting it sit on top of the mute button. */
+  padding-bottom: 38px;
   border-top: 1px solid var(--edge);
 }
 
