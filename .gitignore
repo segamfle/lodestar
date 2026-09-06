@@ -10,3 +10,7 @@ package-lock.json
 config/payout-addresses.json
 games/*/dist/
 cookiechain/*/dist/
+
+# Unrelated work that happens to live in the same folder. `git add -A` swept seven files of
+# it - including a compiled binary - into a public repository once. Not again.
+trader/
