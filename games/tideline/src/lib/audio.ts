@@ -42,6 +42,8 @@ class TidelineAudio {
   private space: Space | null = null;
   private noise: AudioBuffer | null = null;
   private swell: { gain: GainNode; sources: AudioBufferSourceNode[] } | null = null;
+  /** Long-running oscillators driving the swell's shape, stopped with it. */
+  private modulators: OscillatorNode[] = [];
 
   muted = readMuted();
 
@@ -182,45 +184,138 @@ class TidelineAudio {
   }
 
   /** The wash of water climbing the wall. Held until `stopSwell`. */
+  /**
+   * Water climbing stone.
+   *
+   * The first version was white noise through one lowpass whose cutoff swept smoothly from
+   * 240 Hz to 1500 Hz. Every property of that is wrong for water and right for a machine: the
+   * spectrum never changes shape, the amplitude never varies, and the one thing that does
+   * move rises monotonically - which is exactly what a motor spinning up does. It sounded
+   * like a vacuum cleaner because acoustically it was one.
+   *
+   * Water is not a continuous hiss. It is thousands of separate small impacts, and what the
+   * ear uses to identify it is the irregularity: the surge and fall of a swell that never
+   * repeats, a spectrum that wanders rather than sweeps, and discrete droplets on top. All
+   * three are built here.
+   */
   startSwell(level: number) {
     const ctx = this.ctx;
     if (!ctx || !this.master || !this.noise || this.muted) return;
     this.stopSwell();
     const now = ctx.currentTime;
+    const noise = this.noise;
 
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.0001, now);
-    // Scaled by the tide. The wash used to be the same level whatever happened, and since it
-    // dominated the mix a jackpot and a bust measured five decibels apart - with the bust
-    // actually louder above a kilohertz.
-    gain.gain.exponentialRampToValueAtTime(0.1 + level * 0.045, now + 0.5);
-    gain.connect(this.master);
+    const bus = ctx.createGain();
+    // Scaled by the tide, so how far the water climbs is audible and not only visible.
+    const loudness = 0.1 + level * 0.045;
+    bus.gain.setValueAtTime(0.0001, now);
+    bus.gain.exponentialRampToValueAtTime(loudness, now + 0.45);
+    bus.connect(this.master);
 
-    // Two sides at slightly different playback rates. One mono source is a wall of noise in
-    // the middle of the head; two decorrelated ones are weather.
     const sources: AudioBufferSourceNode[] = [];
-    for (const [pan, rate] of [[-0.85, 1.0], [0.85, 1.013]] as const) {
+
+    // ---- body: the mass of moving water, felt more than heard --------------------------
+    {
       const source = ctx.createBufferSource();
-      source.buffer = this.noise;
+      source.buffer = noise;
       source.loop = true;
-      source.playbackRate.value = rate;
+      source.playbackRate.value = 0.55;
 
-      const filter = ctx.createBiquadFilter();
-      filter.type = 'lowpass';
-      filter.frequency.setValueAtTime(240, now);
-      // Opening the filter as the water rises reads as the sound getting closer, not louder.
-      filter.frequency.exponentialRampToValueAtTime(1500, now + 1.8);
-      filter.Q.value = 0.7;
+      const low = ctx.createBiquadFilter();
+      low.type = 'lowpass';
+      low.frequency.value = 190;
+      low.Q.value = 0.6;
 
-      const side = ctx.createStereoPanner();
-      side.pan.value = pan;
+      const swellGain = ctx.createGain();
+      swellGain.gain.value = 0.85;
 
-      source.connect(filter).connect(side).connect(gain);
+      // Two slow modulators at rates that share no common multiple, so the surge never
+      // settles into a pattern the ear can predict. A single LFO reads as a wobble effect.
+      for (const [rate, depth] of [[0.23, 0.3], [0.37, 0.18]] as const) {
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = rate;
+        const amount = ctx.createGain();
+        amount.gain.value = depth;
+        lfo.connect(amount).connect(swellGain.gain);
+        lfo.start(now);
+        this.modulators.push(lfo);
+      }
+
+      source.connect(low).connect(swellGain).connect(bus);
       source.start(now);
       sources.push(source);
     }
 
-    this.swell = { gain, sources };
+    // ---- wash: the surface, wandering rather than sweeping ------------------------------
+    for (const [pan, rate] of [[-0.8, 1.0], [0.8, 1.017]] as const) {
+      const source = ctx.createBufferSource();
+      source.buffer = noise;
+      source.loop = true;
+      source.playbackRate.value = rate;
+
+      const band = ctx.createBiquadFilter();
+      band.type = 'bandpass';
+      band.Q.value = 0.7;
+      band.frequency.setValueAtTime(400, now);
+
+      // The centre is re-aimed at a fresh random target several times a second, drifting
+      // upward as the tide climbs. A smooth ramp to a fixed destination is a machine
+      // changing speed; this is a surface that will not hold still.
+      for (let step = 0; step < 14; step++) {
+        const at = now + step * 0.16;
+        const bias = 320 + step * 34 * (0.4 + level * 0.1);
+        band.frequency.setTargetAtTime(bias * (0.62 + Math.random() * 0.9), at, 0.09);
+      }
+
+      const side = ctx.createStereoPanner();
+      side.pan.value = pan;
+
+      const level2 = ctx.createGain();
+      level2.gain.value = 0.5;
+
+      source.connect(band).connect(level2).connect(side).connect(bus);
+      source.start(now);
+      sources.push(source);
+    }
+
+    // ---- droplets: the part that makes it liquid ----------------------------------------
+    //
+    // Discrete impacts at irregular intervals. Without these the layers above are still just
+    // shaped noise, however carefully shaped - the ear needs individual events to hear
+    // water rather than air. Scheduled on the audio clock rather than with timers, so there
+    // is nothing to clean up and nothing to drift.
+    let at = now + 0.08;
+    while (at < now + 2.6) {
+      const drop = ctx.createBufferSource();
+      drop.buffer = noise;
+      drop.playbackRate.value = 0.8 + Math.random() * 1.6;
+      // Start somewhere random in the buffer so no two droplets are the same sample.
+      const offset = Math.random() * (noise.duration - 0.1);
+
+      const voice = ctx.createBiquadFilter();
+      voice.type = 'bandpass';
+      voice.frequency.value = 700 + Math.random() * 2600;
+      voice.Q.value = 2.5 + Math.random() * 5;
+
+      const envelope = ctx.createGain();
+      const peak = 0.05 + Math.random() * 0.14;
+      const decay = 0.03 + Math.random() * 0.07;
+      envelope.gain.setValueAtTime(0.0001, at);
+      envelope.gain.exponentialRampToValueAtTime(peak, at + 0.004);
+      envelope.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+
+      const where = ctx.createStereoPanner();
+      where.pan.value = Math.random() * 1.6 - 0.8;
+
+      drop.connect(voice).connect(envelope).connect(where).connect(bus);
+      drop.start(at, offset, decay + 0.05);
+      sources.push(drop);
+
+      // Irregular spacing. An even one would be a tick, not weather.
+      at += 0.018 + Math.random() * 0.07;
+    }
+
+    this.swell = { gain: bus, sources };
   }
 
   /**
@@ -247,7 +342,22 @@ class TidelineAudio {
     swell.gain.gain.cancelScheduledValues(now);
     swell.gain.gain.setValueAtTime(Math.max(swell.gain.gain.value, 0.0001), now);
     swell.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8);
-    for (const source of swell.sources) source.stop(now + 0.9);
+    for (const source of swell.sources) {
+      // Droplets scheduled past the stop have not started and will throw if stopped.
+      try {
+        source.stop(now + 0.9);
+      } catch {
+        // Already finished; nothing to do.
+      }
+    }
+    for (const lfo of this.modulators) {
+      try {
+        lfo.stop(now + 0.9);
+      } catch {
+        // Already stopped.
+      }
+    }
+    this.modulators = [];
   }
 
   /** The ladder came up dry. Water pulling back off stone, and nothing else. */
