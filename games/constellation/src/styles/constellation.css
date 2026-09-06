@@ -352,3 +352,39 @@ body {
     transition-duration: 1ms !important;
   }
 }
+
+/* A loss should not borrow the win's colour. The accent was gold whatever happened, so a 63%
+   loss and a jackpot were separated by eighteen units of RGB. */
+.result.is-loss {
+  border-left-color: #a8574f;
+}
+
+.result-delta {
+  font-size: 12px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.result.is-win .result-delta {
+  color: var(--star, var(--brass, #ffd68c));
+}
+
+.result.is-loss .result-delta {
+  color: #e58a7c;
+}
+
+/* These snapped between states with no easing, sitting under a bet button eased at 140ms. */
+.reset,
+.mute {
+  border-radius: 2px;
+  transition: color 140ms, border-color 140ms;
+}
+
+/* The only text field in either game had its focus ring removed and nothing put back, so
+   tabbing into it left no indication at all. */
+.field:focus-within {
+  border-color: rgba(255, 198, 102, 0.55);
+  box-shadow:
+    inset 0 1px 3px rgba(0, 0, 0, 0.6),
+    0 0 0 2px rgba(255, 198, 102, 0.3);
+}

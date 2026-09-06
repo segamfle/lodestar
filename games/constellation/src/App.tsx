@@ -21,6 +21,8 @@ import {
   payoutFor,
 } from './lib/constellation';
 const EMPTY_HEX = '0x' as const;
+/** Stable identity, so the board's arrival effect does not re-run on every idle render. */
+const EMPTY_ORDER: number[] = [];
 const SHAPE_ABI = [{ type: 'uint256' }] as const;
 const STATE_ABI = [{ type: 'uint256' }, { type: 'uint256' }, { type: 'uint256' }, { type: 'bool' }] as const;
 /**
@@ -321,6 +323,9 @@ export function App() {
       setError(cause instanceof Error ? cause.message : 'Could not open the round.');
     }
   }, [canBet, hostApi, standalone, shape, size, wager, snapshot]);
+  /** Profit or loss against the stake, which is what the player actually wants to know. */
+  const outcome = round ? (round.payout ?? 0n) - round.wager : 0n;
+
   const phase: SkyPhase =
     round?.status === 'lighting' ? 'lighting' : round?.status === 'done' ? 'settled' : 'idle';
   const money = (value: bigint) => `${formatAmount(value, decimals)} ${symbol}`;
@@ -332,14 +337,17 @@ export function App() {
   return (
     <main className="constellation">
       <section className="board" ref={boardRef}>
+        {/* Every one of these is gated the same way. Feeding the finished round's sky to a
+            board the player is editing meant a new mark landing where a star had been drew
+            immediately as a gold hit - the game showing a win for a bet not yet placed. */}
         <Sky
           shape={boardShape}
-          sky={round?.sky ?? null}
-          revealed={revealed}
-          order={round?.order ?? []}
+          sky={settling ? round.sky : null}
+          revealed={settling ? revealed : 0}
+          order={settling ? round.order : EMPTY_ORDER}
           phase={phase}
           hovered={hovered}
-          roundKey={round?.sessionKey ?? 'none'}
+          roundKey={settling ? round.sessionKey : 'idle'}
         />
         <div
           className="cells"
@@ -370,14 +378,6 @@ export function App() {
         </div>
       </section>
       <section className="controls">
-        {round?.status === 'done' && (
-          <div className={`result${round.payout && round.payout > 0n ? ' is-win' : ''}`} role="status">
-            <span className="result-hits">
-              {hits} of {round.size} lit
-            </span>
-            <strong>{round.payout && round.payout > 0n ? money(round.payout) : 'Dark'}</strong>
-          </div>
-        )}
         <label className="field">
           <span>Wager</span>
           <input
@@ -407,12 +407,26 @@ export function App() {
           <table className="paytable">
             <tbody>
               {outcomes.map((row) => (
-                <tr key={row.hits} className={round?.status === 'done' && hits === row.hits ? 'is-hit' : ''}>
+                <tr
+                  key={row.hits}
+                  // Only when the table still belongs to the round that produced the result.
+                  // Unmarking a cell after a win used to light a row from the new shape's
+                  // paytable - claiming a 15x jackpot on a round that paid 3.96x.
+                  className={
+                    round?.status === 'done' && round.size === size && hits === row.hits
+                      ? 'is-hit'
+                      : ''
+                  }
+                >
                   <th scope="row">
                     {row.hits} of {size}
                   </th>
                   <td>{row.multiplierX.toFixed(2)}×</td>
-                  <td className="odds">{(row.chance * 100).toFixed(2)}%</td>
+                  {/* 19 draws in 480,700 is 0.004%, which two decimals rounds to 0.00% -
+                      the game advertising its own top prize as impossible. */}
+                  <td className="odds">
+                    {row.chance * 100 < 0.01 ? '<0.01%' : `${(row.chance * 100).toFixed(2)}%`}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -430,9 +444,31 @@ export function App() {
                   : 'Light the sky'}
         </button>
         {round?.status === 'done' && (
-          <button type="button" className="reset" onClick={() => { setRound(null); setRevealed(0); }}>
-            Clear
-          </button>
+          <>
+            {/* Below the button, not above it. Mounting this at the top of the panel shoved
+                the bet button 82 pixels up out from under the cursor on every single round
+                and dropped it back three seconds later. And getting something back is not
+                the same as winning: the accent used to be gold whatever happened. */}
+            <div
+              className={`result${outcome > 0n ? ' is-win' : outcome < 0n ? ' is-loss' : ''}`}
+              role="status"
+            >
+              <span className="result-hits">
+                {hits} of {round.size} lit
+              </span>
+              <strong>{(round.payout ?? 0n) > 0n ? money(round.payout ?? 0n) : 'Dark'}</strong>
+              <span className="result-delta">
+                {outcome > 0n
+                  ? `+${money(outcome)}`
+                  : outcome < 0n
+                    ? `−${money(-outcome)}`
+                    : 'even'}
+              </span>
+            </div>
+            <button type="button" className="reset" onClick={() => { setRound(null); setRevealed(0); }}>
+              Clear
+            </button>
+          </>
         )}
         {error && <p className="error">{error}</p>}
         {standalone && <p className="hint standalone">Standalone demo — outcomes drawn locally.</p>}

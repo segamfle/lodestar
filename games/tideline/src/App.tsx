@@ -282,6 +282,11 @@ export function App() {
     }
   }, [canBet, hostApi, standalone, stakes, wager, snapshot]);
 
+  const settling = round !== null && round.status !== 'opening' && round.status !== 'done';
+
+  /** Profit or loss against the stake, which is what the player actually wants to know. */
+  const outcome = round ? (round.payout ?? 0n) - round.wager : 0n;
+
   const phase: LadderPhase =
     round?.status === 'rising' ? 'rising' : round?.status === 'done' ? 'settled' : 'idle';
 
@@ -290,8 +295,11 @@ export function App() {
   return (
     <main className="tideline">
       <section className="scene">
+        {/* Only a round still in flight owns the picture. Once it is done the player is
+            choosing again, and the ladder has to show what they are choosing - it used to
+            stay frozen on the finished round, so rungs added afterwards never lit. */}
         <Ladder
-          stakes={round && round.status !== 'opening' ? round.stakes : stakes}
+          stakes={settling ? round.stakes : stakes}
           level={round?.status === 'rising' || round?.status === 'done' ? round.level : null}
           phase={phase}
           hovered={hovered}
@@ -325,10 +333,23 @@ export function App() {
           })}
         </div>
 
+        {/* Getting something back is not the same as winning. A 0.37 return on a stake of 1
+            was painted in the same colour as a 3.17 jackpot, because the test was "payout
+            above zero" rather than "payout above the stake". */}
         {round?.status === 'done' && (
-          <div className={`result${round.payout && round.payout > 0n ? ' is-win' : ''}`} role="status">
+          <div
+            className={`result${outcome > 0n ? ' is-win' : outcome < 0n ? ' is-loss' : ''}`}
+            role="status"
+          >
             <span className="result-level">Tide {round.level}</span>
-            <strong>{round.payout && round.payout > 0n ? money(round.payout) : 'Dry ladder'}</strong>
+            <strong>{(round.payout ?? 0n) > 0n ? money(round.payout ?? 0n) : 'Dry ladder'}</strong>
+            <span className="result-delta">
+              {outcome > 0n
+                ? `+${money(outcome)}`
+                : outcome < 0n
+                  ? `−${money(-outcome)}`
+                  : 'even'}
+            </span>
           </div>
         )}
       </section>

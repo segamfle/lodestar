@@ -7,7 +7,7 @@
     "dev": "vite --port 5180",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --port 5180",
-    "test": "node src/lib/tide.test.mts"
+    "test": "node src/lib/tide.test.mts && node src/lib/money.test.mts"
   },
   "dependencies": {
     "@chain/casino-sdk": "file:../../vendor/casino-sdk/casino-sdk",

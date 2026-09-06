@@ -1,4 +1,3 @@
-import { formatUnits } from 'viem';
 
 /**
  * Format a token amount for a player to read, not for a machine to parse.
@@ -10,15 +9,18 @@ import { formatUnits } from 'viem';
  *
  * Rounding here is display only. Every number that decides anything stays a bigint.
  */
-export function formatAmount(value: bigint, decimals: number, maxFractionDigits = 6): string {
-  const exact = formatUnits(value, decimals);
-  const [whole, fraction = ''] = exact.split('.');
-  if (fraction === '') return whole;
+export function formatAmount(value: bigint, decimals: number, maxFractionDigits = 4): string {
+  if (value === 0n) return '0';
 
-  const trimmed = fraction.slice(0, maxFractionDigits).replace(/0+$/, '');
-  if (trimmed === '') {
-    // Something small but not zero should not read as zero.
-    return value === 0n ? whole : `<0.${'0'.repeat(maxFractionDigits - 1)}1`;
-  }
-  return `${whole}.${trimmed}`;
+  // Round rather than cut. Slicing the decimal string left every headline number trailing a
+  // run of 9s or 3s - 274.399999 for a true 274.4, 2.743999 for 2.744 - which reads as a
+  // floating-point bug in a game whose whole pitch is that its arithmetic is exact.
+  const scale = 10n ** BigInt(decimals);
+  const unit = 10n ** BigInt(Math.max(decimals - maxFractionDigits, 0));
+  const rounded = ((value + unit / 2n) / unit) * unit;
+  if (rounded === 0n) return `<0.${'0'.repeat(maxFractionDigits - 1)}1`;
+
+  const whole = rounded / scale;
+  const fraction = (rounded % scale).toString().padStart(decimals, '0').slice(0, maxFractionDigits).replace(/0+$/, '');
+  return fraction === '' ? whole.toString() : `${whole}.${fraction}`;
 }
